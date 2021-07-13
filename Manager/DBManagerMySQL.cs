@@ -19,18 +19,43 @@ namespace HS.DB.Manager
         }
         public override DBCommand Prepare(string SQLQuery) { return new DBCommandMySQL(this, SQLQuery); }
 
+        #region Transaction
+        private MySqlTransaction Transaction;
+        public override void StartTransaction() { Transaction = conn.Connector.BeginTransaction(); }
+        public override void EndTransaction(bool Commit = true) { if(Commit) Transaction?.Commit(); Transaction?.Rollback(); }
+        public override bool IsTransactionMode => Transaction != null;
+        #endregion
+
         #region ExcuteArea
-        public override DBData Excute(string SQLQuery, params DBParam[] param) { return new DBDataMySQL(ExcuteRaw(SQLQuery, param)); }
-        public override async Task<DBData> ExcuteAsync(string SQLQuery, params DBParam[] param) { return new DBDataMySQL(await ExcuteRawAsync(SQLQuery, param)); }
+        public override DBData Excute(string SQLQuery, params DBParam[] param) { return new DBDataMySQL(Build(SQLQuery, param)); }
+        public override async Task<DBData> ExcuteAsync(string SQLQuery, params DBParam[] param) { return await Task.Run(() => new DBDataMySQL(Build(SQLQuery, param))); }
         public override int ExcuteNonQuery(string SQLQuery, params DBParam[] param) { return ExcuteRawNonQuery(SQLQuery, param as DBParamMySQL[]); }
         public override async Task<int> ExcuteNonQueryAsync(string SQLQuery, params DBParam[] param) { return await ExcuteRawNonQueryAsync(SQLQuery, param); }
 
-        public override object ExcuteOnce(string SQLQuery, params DBParam[] param) { using (var reader = CommandBuilder(conn.Connector, SQLQuery, param)) return reader.ExecuteScalar(); }
-        public override async Task<object> ExcuteOnceAsync(string SQLQuery, params DBParam[] param) { using (var reader = CommandBuilder(conn.Connector, SQLQuery, param)) return await reader.ExecuteScalarAsync(); }
+        public override object ExcuteOnce(string SQLQuery, params DBParam[] param) 
+        {
+            MySqlCommand builder = null;
+            try
+            {
+                builder = CommandBuilder(conn.Connector, SQLQuery, param);
+                return builder.ExecuteScalar();
+            }
+            finally { builder.Dispose(); }
+        }
+        public override async Task<object> ExcuteOnceAsync(string SQLQuery, params DBParam[] param)
+        {
+            MySqlCommand builder = null;
+            try
+            {
+                builder = CommandBuilder(conn.Connector, SQLQuery, param);
+                return await builder.ExecuteScalarAsync();
+            }
+            finally { builder.Dispose(); }
+        }
 
         #region ExcuteRaw
-        public MySqlDataReader ExcuteRaw(string SQLQuery, params DBParam[] param) { using (var cmd = CommandBuilder(conn.Connector, SQLQuery, param)) return cmd.ExecuteReader(); }
-        public async Task<MySqlDataReader> ExcuteRawAsync(string SQLQuery, params DBParam[] param) { using (var cmd = CommandBuilder(conn.Connector, SQLQuery, param)) return await cmd.ExecuteReaderAsync() as MySqlDataReader; }
+        public MySqlCommand Build(string SQLQuery, params DBParam[] param) { return CommandBuilder(conn.Connector, SQLQuery, param); }
+        //public async Task<MySqlDataReader> ExcuteRawAsync(string SQLQuery, params DBParam[] param) { return await CommandBuilder(conn.Connector, SQLQuery, param).ExecuteReaderAsync() as MySqlDataReader; }
         #endregion
 
         #region ExcuteRawAsync

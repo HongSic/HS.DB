@@ -1,5 +1,4 @@
-﻿using HS.DB.Connection;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace HS.DB
 {

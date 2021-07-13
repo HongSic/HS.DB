@@ -1,17 +1,19 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 
 namespace HS.DB.Data
 {
-    public abstract class DBData : IEnumerator<object[]>
+    public abstract class DBData : IEnumerator<object[]>, IDisposable
     {
         int _Offset = -1;
 
         public abstract object this[string Column] { get; }
         public abstract object this[int Index] { get; }
 
-        public abstract DBValue[] Columns { get; }
+
+
+        public abstract DBColumn[] Columns { get; }
         public abstract int ColumnsCount { get; }
         public abstract bool HasRows { get; }
         public virtual int Offset { get { return _Offset; } protected set { _Offset = value; } }

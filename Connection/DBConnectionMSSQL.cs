@@ -14,9 +14,12 @@ namespace HS.DB.Connection
     //서버에 SQL Server 2008 SP3 로 업그레이드하면서 작동함
     public class DBConnectionMSSQL : DBConnection
     {
+        public const int PORT = 1433;
         DBManagerMSSQL manager;
-        private DBConnectionMSSQL(string Server, string ID, string PW, string DB, int Timeout) : base(Server, ID, PW, DB, Timeout)
+        private DBConnectionMSSQL(string Server, string ID, string PW, string DB, int Timeout) : this(Server, PORT, ID, PW, DB, Timeout) { }
+        private DBConnectionMSSQL(string Server, int Port, string ID, string PW, string DB, int Timeout) : base(Server, ID, PW, DB, Timeout)
         {
+            this.Port = Port;
             manager = new DBManagerMSSQL(this);
             Connector = new SqlConnection(ConnectionString);
             //System.Console.WriteLine(ConnectionString);
@@ -24,7 +27,27 @@ namespace HS.DB.Connection
         }
 
         //public override string ConnectionString { get { return string.Format(@"Server={0};uid={1};pwd={2};database={3};timeout={4};Pooling=False;Persist Security Info=True;TrustServerCertificate=False;", Server, ID, PW, DB, Timeout); } }
-        public override string ConnectionString { get { return string.Format(@"Data Source={0};UID={1};PWD={2};DATABASE={3};TIMEOUT={4};TrustServerCertificate=true", Server, ID, PW, DB, Timeout); } }
+        //public override string ConnectionString { get { return string.Format(@"Data Source={0}, {1};UID={2};PWD={3};DATABASE={4};TIMEOUT={5};TrustServerCertificate=true", Server, Port, ID, PW, DB, Timeout); } }
+
+        public int Port { get; private set; }
+
+
+        public override string ConnectionString
+        {
+            get
+            {
+                var sqlBuilder = new SqlConnectionStringBuilder
+                {
+                    DataSource = Server,
+
+                    UserID = ID,
+                    Password = PW,
+                    InitialCatalog = DB,
+                    ConnectTimeout = Timeout,
+                };
+                return string.Format("{0};Port={1};TrustServerCertificate=true", sqlBuilder.ToString(), Port);
+            }
+        }
         public SqlConnection Connector { get; private set; }
 
         public override DBStatus Status

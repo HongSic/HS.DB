@@ -7,24 +7,27 @@ namespace HS.DB.Data
     public class DBDataMySQL : DBData
     {
         protected DBDataMySQL() { }
+        public DBDataMySQL(DbCommand Command) : this(Command.ExecuteReader()) { this.Command = Command; }
         public DBDataMySQL(DbDataReader Reader)
         {
             this.Reader = Reader;
 
             _ColumnsCount = Reader.FieldCount;
 
-            _Columns = new DBValue[_ColumnsCount];
-            for (int i = 0; i < _ColumnsCount; i++) _Columns[i] = new DBValue(Reader.GetName(i), Reader.GetDataTypeName(i), Reader.GetFieldType(i));
+            _Columns = new DBColumn[_ColumnsCount];
+            for (int i = 0; i < _ColumnsCount; i++) _Columns[i] = new DBColumn(Reader.GetName(i), Reader.GetDataTypeName(i), Reader.GetFieldType(i));
         }
 
         #region 필드 Private 변수
-        private DBValue[] _Columns;
-        private int _ColumnsCount;
+        private readonly DbCommand Command;
+
+        private readonly DBColumn[] _Columns;
+        private readonly int _ColumnsCount;
         #endregion
 
         public DbDataReader Reader { get; protected set; }
 
-        public override DBValue[] Columns { get { return _Columns; } }
+        public override DBColumn[] Columns { get { return _Columns; } }
         public override int ColumnsCount { get { return _ColumnsCount; } }
         public override bool HasRows { get { return Reader.HasRows; } }
 
@@ -43,6 +46,10 @@ namespace HS.DB.Data
         public override bool MoveNext() { bool read = Reader.Read(); if (read) Offset++; return read; }
         public override void Reset() { throw new NotSupportedException(); }
 
-        public override void Dispose() { Reader.Close(); }
+        public override void Dispose() 
+        {
+            Reader.Close();
+            Command?.Dispose();
+        }
     }
 }

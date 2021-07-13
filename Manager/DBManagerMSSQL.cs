@@ -26,6 +26,13 @@ namespace HS.DB.Manager
 
         public override DBCommand Prepare(string SQLQuery) { return new DBCommandMSSQL(this, SQLQuery); }
 
+        #region Transaction
+        private SqlTransaction Transaction;
+        public override void StartTransaction() { Transaction = conn.Connector.BeginTransaction(); }
+        public override void EndTransaction(bool Commit = true) { if (Commit) Transaction?.Commit(); Transaction?.Rollback(); }
+        public override bool IsTransactionMode => Transaction != null;
+        #endregion
+
 
         #region ExcuteArea
         public override DBData Excute(string SQLQuery, params DBParam[] param) { return new DBDataMSSQL(ExcuteRaw(SQLQuery, param)); }

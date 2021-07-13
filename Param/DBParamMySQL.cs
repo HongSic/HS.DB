@@ -7,7 +7,7 @@ namespace HS.DB.Param
 {
     public class DBParamMySQL : DBParam
     {
-        private MySqlParameter param;
+        private readonly MySqlParameter param;
         public DBParamMySQL(string Name, object Value) : base(Name, Value) { param = new MySqlParameter(Name, Value); }
         public DBParamMySQL(string Name, string Value, MySqlDbType Type) : base(Name, Value) { param = new MySqlParameter(Name, Type); param.Value = Value; }
 

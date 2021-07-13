@@ -17,6 +17,10 @@ namespace HS.DB
 
         public abstract DBCommand Prepare(string SQLQuery);
 
+        public abstract void StartTransaction();
+        public abstract void EndTransaction(bool Commit = true);
+        public abstract bool IsTransactionMode { get; }
+
         #region ExcuteArea
         #region Excute
         public virtual DBData Excute(string command) { return Excute(command, null); }

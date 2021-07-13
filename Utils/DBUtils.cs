@@ -60,12 +60,12 @@ namespace HS.Utils
                 {
                     StringBuilder sb_name = new StringBuilder("\"cols\":[");
 
-                    sb_name.AppendFormat("\"{0}\"", data.Columns[0].Value);
+                    sb_name.AppendFormat("\"{0}\"", data.Columns[0].Name);
                     sb_type.AppendFormat("\"{0}\"", GetTypeString(data.Columns[0].Type));
                     for (int i = 1; i < cnt; i++)
                     {
                         sb_type.AppendFormat(",\"{0}\"", GetTypeString(data.Columns[i].Type));
-                        sb_name.AppendFormat(",\"{0}\"", data.Columns[i].Value);
+                        sb_name.AppendFormat(",\"{0}\"", data.Columns[i].Name);
                     }
 
                     sb_name.Append("]");

@@ -16,18 +16,18 @@ namespace HS.DB.Data
 
             _ColumnsCount = Reader.FieldCount;
 
-            _Columns = new DBValue[_ColumnsCount];
-            for (int i = 0; i < _ColumnsCount; i++) _Columns[i] = new DBValue(Reader.GetName(i), Reader.GetDataTypeName(i), Reader.GetFieldType(i));
+            _Columns = new DBColumn[_ColumnsCount];
+            for (int i = 0; i < _ColumnsCount; i++) _Columns[i] = new DBColumn(Reader.GetName(i), Reader.GetDataTypeName(i), Reader.GetFieldType(i));
         }
 
         #region 필드 Private 변수
-        private DBValue[] _Columns;
+        private DBColumn[] _Columns;
         private int _ColumnsCount;
         #endregion
 
         public SqlDataReader Reader { get; protected set; }
 
-        public override DBValue[] Columns { get{ return _Columns; } }
+        public override DBColumn[] Columns { get{ return _Columns; } }
         public override int ColumnsCount { get { return _ColumnsCount; } }
 
         public override bool HasRows { get { return Reader.HasRows; } }
