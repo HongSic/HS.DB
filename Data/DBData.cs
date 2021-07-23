@@ -11,8 +11,6 @@ namespace HS.DB.Data
         public abstract object this[string Column] { get; }
         public abstract object this[int Index] { get; }
 
-
-
         public abstract DBColumn[] Columns { get; }
         public abstract int ColumnsCount { get; }
         public abstract bool HasRows { get; }

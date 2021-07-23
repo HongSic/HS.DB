@@ -2,34 +2,35 @@
 using HS.DB.Data;
 using HS.DB.Manager;
 using HS.DB.Param;
-using MySql.Data.MySqlClient;
+using Oracle.ManagedDataAccess.Client;
+using System.Data;
 using System.Threading.Tasks;
 
 namespace HS.DB.Command
 {
-    public class DBCommandMySQL : DBCommand
+    public class DBCommandOracle : DBCommand
     {
-        public DBManagerMySQL Manager { get; private set; }
-        public MySqlCommand Command { get; private set; }
+        public DBManagerOracle Manager { get; private set; }
+        public OracleCommand Command { get; private set; }
 
         public string SQLQuery { get; private set; }
 
-        public DBCommandMySQL(DBManagerMySQL Manager, string SQLQuery)
+        public DBCommandOracle(DBManagerOracle Manager, string SQLQuery)
         {
             this.Manager = Manager;
-            Command = new MySqlCommand(SQLQuery, (MySqlConnection)(DBConnectionMySQL)Manager.Connector);
+            Command = new OracleCommand(SQLQuery, (OracleConnection)(DBConnectionOracle)Manager.Connector);
         }
 
-        public override DBCommand Add(DBParam Param) { Command.Parameters.Add((MySqlParameter)(DBParamMySQL)Param); return this;  }
-        public DBCommand Add(string Key, object Value, MySqlDbType Type)
+        public override DBCommand Add(DBParam Param) { Command.Parameters.Add((OracleParameter)(DBParamOracle)Param); return this; }
+        public DBCommand Add(string Key, object Value, OracleDbType Type)
         {
             Command.Parameters.Add(Key, Type);
             Command.Parameters[Key].Value = Value;
             return this;
         }
 
-        public override DBData Excute() { using (Command) return new DBDataMySQL(Command.ExecuteReader()); }
-        public override async Task<DBData> ExcuteAsync() { using (Command) return new DBDataMySQL((MySqlDataReader) await Command.ExecuteReaderAsync()); }
+        public override DBData Excute() { using (Command) return new DBDataOracle(Command.ExecuteReader()); }
+        public override async Task<DBData> ExcuteAsync() { using (Command) return new DBDataOracle((OracleDataReader)await Command.ExecuteReaderAsync()); }
 
         public override int ExcuteNonQuery() { using (Command) return Command.ExecuteNonQuery(); }
         public override async Task<int> ExcuteNonQueryAsync() { using (Command) return await Command.ExecuteNonQueryAsync(); }

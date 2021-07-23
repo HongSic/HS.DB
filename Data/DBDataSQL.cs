@@ -6,6 +6,7 @@ namespace HS.DB.Data
     public class DBDataSQL : DBData
     {
         protected DBDataSQL() { }
+        public DBDataSQL(DbCommand Command) : this(Command.ExecuteReader()) { this.Command = Command; }
         public DBDataSQL(DbDataReader Reader)
         {
             this.Reader = Reader;
@@ -17,8 +18,10 @@ namespace HS.DB.Data
         }
 
         #region 필드 Private 변수
-        private DBColumn[] _Columns;
-        private int _ColumnsCount;
+        protected DbCommand Command;
+
+        protected DBColumn[] _Columns;
+        protected int _ColumnsCount;
         #endregion
 
         public DbDataReader Reader { get; protected set; }
@@ -42,6 +45,10 @@ namespace HS.DB.Data
         public override bool MoveNext() { bool read = Reader.Read(); if (read) Offset++; return read; }
         public override void Reset() { throw new NotSupportedException(); }
 
-        public override void Dispose() { Reader.Close(); }
+        public override void Dispose()
+        {
+            Reader.Close();
+            Command?.Dispose();
+        }
     }
 }

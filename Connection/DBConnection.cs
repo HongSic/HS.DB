@@ -1,17 +1,19 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace HS.DB
 {
     public delegate void DBStatusChangedEventHandler(object sender, DBStatus Status);
     public abstract class DBConnection
     {
-        public DBConnection(string Server, string ID, string PW, string DB, int Timeout)
+        public DBConnection(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param = null)
         {
             this.Timeout = Timeout;
             this.Server = Server;
             this.ID = ID;
             this.PW = PW;
             this.DB = DB;
+            this.Param = Param;
         }
 
         //DBStatus _Status;
@@ -27,6 +29,8 @@ namespace HS.DB
         public virtual string DB { get; private set; }
         
         public virtual int Timeout { get; private set; }
+
+        public virtual IReadOnlyDictionary<string, string> Param { get; protected set; }
 
         public virtual event DBStatusChangedEventHandler StatusChanged;
 

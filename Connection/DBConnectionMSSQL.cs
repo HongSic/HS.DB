@@ -6,6 +6,7 @@ using System.Data.SqlClient;
 using HS.DB.Manager;
 using System.Data;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace HS.DB.Connection
 {
@@ -15,11 +16,11 @@ namespace HS.DB.Connection
     public class DBConnectionMSSQL : DBConnection
     {
         public const int PORT = 1433;
+
         DBManagerMSSQL manager;
-        private DBConnectionMSSQL(string Server, string ID, string PW, string DB, int Timeout) : this(Server, PORT, ID, PW, DB, Timeout) { }
-        private DBConnectionMSSQL(string Server, int Port, string ID, string PW, string DB, int Timeout) : base(Server, ID, PW, DB, Timeout)
+        private DBConnectionMSSQL(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param) : base(Server, ID, PW, DB, Timeout, Param)
         {
-            this.Port = Port;
+            this.Param = Param;
             manager = new DBManagerMSSQL(this);
             Connector = new SqlConnection(ConnectionString);
             //System.Console.WriteLine(ConnectionString);
@@ -29,8 +30,6 @@ namespace HS.DB.Connection
         //public override string ConnectionString { get { return string.Format(@"Server={0};uid={1};pwd={2};database={3};timeout={4};Pooling=False;Persist Security Info=True;TrustServerCertificate=False;", Server, ID, PW, DB, Timeout); } }
         //public override string ConnectionString { get { return string.Format(@"Data Source={0}, {1};UID={2};PWD={3};DATABASE={4};TIMEOUT={5};TrustServerCertificate=true", Server, Port, ID, PW, DB, Timeout); } }
 
-        public int Port { get; private set; }
-
 
         public override string ConnectionString
         {
@@ -38,14 +37,14 @@ namespace HS.DB.Connection
             {
                 var sqlBuilder = new SqlConnectionStringBuilder
                 {
-                    DataSource = Server,
-
+                    DataSource = Param.ContainsKey("Port") ? $"{Server},{Param["Port"]}" : Server,
                     UserID = ID,
                     Password = PW,
                     InitialCatalog = DB,
                     ConnectTimeout = Timeout,
                 };
-                return string.Format("{0};Port={1};TrustServerCertificate=true", sqlBuilder.ToString(), Port);
+                foreach (var pair in Param) sqlBuilder.Add(pair.Key, pair.Value);
+                return sqlBuilder.ToString();
             }
         }
         public SqlConnection Connector { get; private set; }
@@ -79,14 +78,33 @@ namespace HS.DB.Connection
         public static explicit operator SqlConnection(DBConnectionMSSQL connection) { return connection.Connector; }
 
         #region Connect
-        public static DBManagerMSSQL Connect(string Server, string ID, string PW, string DB, int Timeout)
+        public static DBManagerMSSQL Connect(string Server, string ID, string PW, string DB, int Timeout) { return Connect(Server, PORT, ID, PW, DB, Timeout); }
+        public static DBManagerMSSQL Connect(string Server, int Port, string ID, string PW, string DB, int Timeout)
         {
-            DBConnectionMSSQL conn = new DBConnectionMSSQL(Server, ID, PW, DB, Timeout);
+            return  Connect(Server, ID, PW, DB, Timeout, new Dictionary<string, string>()
+            {
+                { "Port", Port.ToString() },
+                { "TrustServerCertificate", true.ToString() },
+            });
+        }
+        public static DBManagerMSSQL Connect(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param)
+        {
+            DBConnectionMSSQL conn = new DBConnectionMSSQL(Server, ID, PW, DB, Timeout, Param);
             return (DBManagerMSSQL)conn.Open();
         }
-        public static async Task<DBManagerMSSQL> ConnectAsync(string Server, string ID, string PW, string DB, int Timeout)
+
+        public static async Task<DBManagerMSSQL> ConnectAsync(string Server, string ID, string PW, string DB, int Timeout) { return await ConnectAsync(Server, ID, PW, DB, Timeout, null); }
+        public static async Task<DBManagerMSSQL> ConnectAsync(string Server, int Port, string ID, string PW, string DB, int Timeout)
         {
-            DBConnectionMSSQL conn = new DBConnectionMSSQL(Server, ID, PW, DB, Timeout);
+            return await ConnectAsync(Server, ID, PW, DB, Timeout, new Dictionary<string, string>()
+            {
+                { "Port", Port.ToString() },
+                { "TrustServerCertificate", true.ToString() },
+            });
+        }
+        public static async Task<DBManagerMSSQL> ConnectAsync(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param)
+        {
+            DBConnectionMSSQL conn = new DBConnectionMSSQL(Server, ID, PW, DB, Timeout, Param);
             return (DBManagerMSSQL)await conn.OpenAsync();
         }
         #endregion
