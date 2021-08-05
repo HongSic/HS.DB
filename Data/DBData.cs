@@ -15,6 +15,7 @@ namespace HS.DB.Data
         public abstract int ColumnsCount { get; }
         public abstract bool HasRows { get; }
         public virtual int Offset { get { return _Offset; } protected set { _Offset = value; } }
+
         //public abstract int Count { get; }
 
         //public abstract bool Exist(string Column);

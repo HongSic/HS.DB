@@ -30,6 +30,8 @@ namespace HS.DB.Data
         public override int ColumnsCount { get { return _ColumnsCount; } }
         public override bool HasRows { get { return Reader.HasRows; } }
 
+        //public override int Count { get { return Reader.FieldCount; } }
+
         public override object[] Current
         {
             get
