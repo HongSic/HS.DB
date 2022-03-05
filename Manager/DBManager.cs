@@ -7,6 +7,7 @@ using HS.DB.Command;
 using HS.DB.Data;
 using System;
 using System.Threading.Tasks;
+using HS.DB.Manager;
 
 namespace HS.DB
 {
@@ -18,7 +19,8 @@ namespace HS.DB
         public abstract DBCommand Prepare(string SQLQuery);
 
         public abstract void StartTransaction();
-        public abstract void EndTransaction(bool Commit = true);
+        public abstract void CommitTransaction();
+        public abstract void RollbackTransaction();
         public abstract bool IsTransactionMode { get; }
 
         #region ExcuteArea
@@ -57,6 +59,20 @@ namespace HS.DB
         public virtual string GetJSON(string command, bool Bracket = true) { return GetJSON(command, Bracket, null); }
         public abstract string GetJSON(string SQLQuery, bool Bracket = true, params DBParam[] param);
         #endregion
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <returns></returns>
+        public static string GetLastInsert(DBManager Manager, string Table)
+        {
+            if (Manager.GetType().Equals(typeof(DBManagerMSSQL))) return "select @@identity";
+            else if (Manager.GetType().Equals(typeof(DBManagerOracle))) return "select nextval() from " + Table;
+            else if (Manager.GetType().Equals(typeof(DBManagerMySQL))) return "SELECT LAST_INSERT_ID()";
+            else return null;
+        }
 
         public virtual void Dispose() { Connector?.Close(); }
     }

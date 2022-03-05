@@ -22,7 +22,8 @@ namespace HS.DB.Manager
         #region Transaction
         private MySqlTransaction Transaction;
         public override void StartTransaction() { Transaction = conn.Connector.BeginTransaction(); }
-        public override void EndTransaction(bool Commit = true) { if(Commit) Transaction?.Commit(); Transaction?.Rollback(); }
+        public override void CommitTransaction() { Transaction?.Commit(); Transaction?.Dispose(); Transaction = null; }
+        public override void RollbackTransaction() { Transaction?.Rollback(); Transaction?.Dispose(); Transaction = null; }
         public override bool IsTransactionMode => Transaction != null;
         #endregion
 
