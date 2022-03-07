@@ -9,6 +9,7 @@ using HS.DB.Manager;
 using HS.DB.Param;
 using System.Data;
 using System.Threading.Tasks;
+using System;
 
 namespace HS.DB.Command
 {
@@ -26,6 +27,14 @@ namespace HS.DB.Command
         }
 
         public override DBCommand Add(DBParam Param) { Command.Parameters.Add((SqlParameter)(DBParamMSSQL)Param); return this; }
+
+        [Obsolete]
+        public override DBCommand Add(object Value)
+        {
+            Command.Parameters.Add(Value);
+            return this;
+        }
+
         public DBCommand Add(string Key, object Value, SqlDbType Type)
         {
             Command.Parameters.Add(Key, Type);

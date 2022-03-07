@@ -74,6 +74,12 @@ namespace HS.DB
             else return null;
         }
 
+        public static string GetResetAutoIncrease(DBManager Manager, string Table)
+        {
+            if (Manager.GetType().Equals(typeof(DBManagerMySQL))) return $"ALTER TABLE {Table} AUTO_INCREMENT = 1";
+            else return null;
+        }
+
         public virtual void Dispose() { Connector?.Close(); }
     }
 }

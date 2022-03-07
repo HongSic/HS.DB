@@ -20,7 +20,12 @@ namespace HS.DB.Command
             Command = new MySqlCommand(SQLQuery, (MySqlConnection)(DBConnectionMySQL)Manager.Connector);
         }
 
-        public override DBCommand Add(DBParam Param) { Command.Parameters.Add((MySqlParameter)(DBParamMySQL)Param); return this;  }
+        public override DBCommand Add(DBParam Param) { Command.Parameters.Add((MySqlParameter)(DBParamMySQL)Param); return this; }
+        public override DBCommand Add(object Value)
+        {
+            Command.Parameters.Add(Value);
+            return this;
+        }
         public DBCommand Add(string Key, object Value, MySqlDbType Type)
         {
             Command.Parameters.Add(Key, Type);

@@ -7,6 +7,8 @@ namespace HS.DB.Command
     public abstract class DBCommand : IDisposable
     {
         public abstract DBCommand Add(DBParam Param);
+        public abstract DBCommand Add(object Value);
+
         public virtual DBCommand AddRange(params DBParam[] Params)
         {
             for (int i = 0; Params != null && i < Params.Length; i++) Add(Params[i]);
