@@ -76,7 +76,7 @@ namespace HS.DB
 
         public static string GetResetAutoIncrease(DBManager Manager, string Table)
         {
-            if (Manager.GetType().Equals(typeof(DBManagerMySQL))) return $"ALTER TABLE {Table} AUTO_INCREMENT = 1";
+            if (Manager.GetType().Equals(typeof(DBManagerMySQL))) return $"ALTER TABLE {Table} AUTO_INCREMENT=1";
             else return null;
         }
 
