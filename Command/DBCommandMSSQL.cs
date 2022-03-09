@@ -28,6 +28,8 @@ namespace HS.DB.Command
 
         public override DBCommand Add(DBParam Param) { Command.Parameters.Add((SqlParameter)(DBParamMSSQL)Param); return this; }
 
+
+        #pragma warning disable CS0809 // Obsolete member overrides non-obsolete member
         [Obsolete]
         public override DBCommand Add(object Value)
         {

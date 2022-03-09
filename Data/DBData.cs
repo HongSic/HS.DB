@@ -37,5 +37,26 @@ namespace HS.DB.Data
             }
             return null;
         }
+
+        public virtual bool ColumnExist(string Column, bool MathchCase = false) { return ColumnIndex(Column, MathchCase) > -1; }
+        public virtual DBColumn ColumnFromName(string Column, bool MathchCase = false) 
+        {
+            int index = ColumnIndex(Column, MathchCase);
+            return index > -1 ? Columns[index] : null;
+        }
+
+        public virtual int ColumnIndex(string Column, bool MathchCase = false)
+        {
+            if (ColumnsCount > 0)
+            {
+                for (int i = 0; i < ColumnsCount; i++)
+                {
+                    if ((MathchCase && Columns[i].Name == Column) ||
+                        Columns[i].Name.ToLower() == Column.ToLower()) return i;
+                }
+            }
+
+            return -1;
+        }
     }
 }
