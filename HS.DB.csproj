@@ -14,11 +14,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Data\DBDataGetter.cs" />
+    <Compile Remove="Result\DBResultGetter.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Data\DBDataGetter.cs" />
+    <None Include="Result\DBResultGetter.cs" />
   </ItemGroup>
 
   <ItemGroup>
