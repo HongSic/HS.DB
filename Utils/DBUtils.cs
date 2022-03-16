@@ -3,7 +3,7 @@ using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
 #endif
-using HS.DB.Data;
+using HS.DB.Result;
 using System;
 using System.Data.Common;
 using System.Text;
@@ -37,7 +37,7 @@ namespace HS.Utils
         #endregion
 
         #region ToJSON
-        public static string ToJSON(this DBData data, bool Bracket = true, bool KeyValuePair = false)
+        public static string ToJSON(this DBResult data, bool Bracket = true, bool KeyValuePair = false)
         {
             if (data == null) return null;
 

@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Data.Common;
 
-namespace HS.DB.Data
+namespace HS.DB.Result
 {
-    public class DBDataSQL : DBData
+    public class DBResultSQL : DBResult
     {
-        protected DBDataSQL() { }
-        public DBDataSQL(DbCommand Command) : this(Command.ExecuteReader()) { this.Command = Command; }
-        public DBDataSQL(DbDataReader Reader)
+        protected DBResultSQL() { }
+        public DBResultSQL(DbCommand Command) : this(Command.ExecuteReader()) { this.Command = Command; }
+        public DBResultSQL(DbDataReader Reader)
         {
             this.Reader = Reader;
 

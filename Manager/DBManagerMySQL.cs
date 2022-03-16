@@ -1,6 +1,6 @@
 ﻿using HS.DB.Command;
 using HS.DB.Connection;
-using HS.DB.Data;
+using HS.DB.Result;
 using HS.DB.Param;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
@@ -28,8 +28,8 @@ namespace HS.DB.Manager
         #endregion
 
         #region ExcuteArea
-        public override DBData Excute(string SQLQuery, params DBParam[] param) { return new DBDataMySQL(Build(SQLQuery, param)); }
-        public override async Task<DBData> ExcuteAsync(string SQLQuery, params DBParam[] param) { return await Task.Run(() => new DBDataMySQL(Build(SQLQuery, param))); }
+        public override DBResult Excute(string SQLQuery, params DBParam[] param) { return new DBResultMySQL(Build(SQLQuery, param)); }
+        public override async Task<DBResult> ExcuteAsync(string SQLQuery, params DBParam[] param) { return await Task.Run(() => new DBResultMySQL(Build(SQLQuery, param))); }
         public override int ExcuteNonQuery(string SQLQuery, params DBParam[] param) { return ExcuteRawNonQuery(SQLQuery, param as DBParamMySQL[]); }
         public override async Task<int> ExcuteNonQueryAsync(string SQLQuery, params DBParam[] param) { return await ExcuteRawNonQueryAsync(SQLQuery, param); }
 

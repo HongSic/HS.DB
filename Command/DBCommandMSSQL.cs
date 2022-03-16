@@ -4,7 +4,7 @@ using Microsoft.Data.SqlClient;
 using System.Data.SqlClient;
 #endif
 using HS.DB.Connection;
-using HS.DB.Data;
+using HS.DB.Result;
 using HS.DB.Manager;
 using HS.DB.Param;
 using System.Data;
@@ -44,8 +44,8 @@ namespace HS.DB.Command
             return this;
         }
 
-        public override DBData Excute() { using (Command) return new DBDataMSSQL(Command.ExecuteReader()); }
-        public override async Task<DBData> ExcuteAsync() { using (Command) return new DBDataMSSQL(await Command.ExecuteReaderAsync()); }
+        public override DBResult Excute() { using (Command) return new DBResultMSSQL(Command.ExecuteReader()); }
+        public override async Task<DBResult> ExcuteAsync() { using (Command) return new DBResultMSSQL(await Command.ExecuteReaderAsync()); }
 
         public override int ExcuteNonQuery() { using (Command) return Command.ExecuteNonQuery(); }
         public override async Task<int> ExcuteNonQueryAsync() { using (Command) return await Command.ExecuteNonQueryAsync(); }

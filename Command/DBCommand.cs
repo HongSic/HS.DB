@@ -1,4 +1,4 @@
-﻿using HS.DB.Data;
+﻿using HS.DB.Result;
 using System;
 using System.Threading.Tasks;
 
@@ -15,8 +15,8 @@ namespace HS.DB.Command
             return this;
         }
 
-        public abstract DBData Excute();
-        public abstract Task<DBData> ExcuteAsync();
+        public abstract DBResult Excute();
+        public abstract Task<DBResult> ExcuteAsync();
 
 
         public abstract int ExcuteNonQuery();

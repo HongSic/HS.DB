@@ -2,9 +2,9 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace HS.DB.Data
+namespace HS.DB.Result
 {
-    public abstract class DBData : IEnumerator<object[]>, IDisposable
+    public abstract class DBResult : IEnumerator<object[]>, IDisposable
     {
         int _Offset = -1;
 

@@ -5,13 +5,13 @@ using System.Data.SqlClient;
 #endif
 using System;
 
-namespace HS.DB.Data
+namespace HS.DB.Result
 {
-    public class DBDataMSSQL : DBDataSQL
+    public class DBResultMSSQL : DBResultSQL
     {
-        protected DBDataMSSQL() { }
-        public DBDataMSSQL(SqlCommand Command) : this(Command.ExecuteReader()) { this.Command = Command; }
-        public DBDataMSSQL(SqlDataReader Reader) : base(Reader) { this.Reader = Reader; }
+        protected DBResultMSSQL() { }
+        public DBResultMSSQL(SqlCommand Command) : this(Command.ExecuteReader()) { this.Command = Command; }
+        public DBResultMSSQL(SqlDataReader Reader) : base(Reader) { this.Reader = Reader; }
 
         public new SqlCommand Command { get; protected set; }
         public new SqlDataReader Reader { get; protected set; }

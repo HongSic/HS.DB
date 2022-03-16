@@ -4,7 +4,7 @@ using Microsoft.Data.SqlClient;
 using System.Data.SqlClient;
 #endif
 using HS.DB.Command;
-using HS.DB.Data;
+using HS.DB.Result;
 using System;
 using System.Threading.Tasks;
 using HS.DB.Manager;
@@ -25,13 +25,13 @@ namespace HS.DB
 
         #region ExcuteArea
         #region Excute
-        public virtual DBData Excute(string command) { return Excute(command, null); }
-        public abstract DBData Excute(string SQLQuery, params DBParam[] param);
+        public virtual DBResult Excute(string command) { return Excute(command, null); }
+        public abstract DBResult Excute(string SQLQuery, params DBParam[] param);
         #endregion
 
         #region ExcuteAsync
-        public virtual async Task<DBData> ExcuteAsync(string command) { return await ExcuteAsync(command, null); }
-        public abstract Task<DBData> ExcuteAsync(string SQLQuery, params DBParam[] param);
+        public virtual async Task<DBResult> ExcuteAsync(string command) { return await ExcuteAsync(command, null); }
+        public abstract Task<DBResult> ExcuteAsync(string SQLQuery, params DBParam[] param);
         #endregion
 
         #region ExcuteNonQuery

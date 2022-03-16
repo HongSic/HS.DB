@@ -1,5 +1,5 @@
 ﻿using HS.DB.Connection;
-using HS.DB.Data;
+using HS.DB.Result;
 using HS.DB.Manager;
 using HS.DB.Param;
 using Oracle.ManagedDataAccess.Client;
@@ -34,8 +34,8 @@ namespace HS.DB.Command
             return this;
         }
 
-        public override DBData Excute() { using (Command) return new DBDataOracle(Command.ExecuteReader()); }
-        public override async Task<DBData> ExcuteAsync() { using (Command) return new DBDataOracle((OracleDataReader)await Command.ExecuteReaderAsync()); }
+        public override DBResult Excute() { using (Command) return new DBResultOracle(Command.ExecuteReader()); }
+        public override async Task<DBResult> ExcuteAsync() { using (Command) return new DBResultOracle((OracleDataReader)await Command.ExecuteReaderAsync()); }
 
         public override int ExcuteNonQuery() { using (Command) return Command.ExecuteNonQuery(); }
         public override async Task<int> ExcuteNonQueryAsync() { using (Command) return await Command.ExecuteNonQueryAsync(); }

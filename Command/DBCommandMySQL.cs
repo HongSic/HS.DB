@@ -1,5 +1,5 @@
 ﻿using HS.DB.Connection;
-using HS.DB.Data;
+using HS.DB.Result;
 using HS.DB.Manager;
 using HS.DB.Param;
 using MySql.Data.MySqlClient;
@@ -33,8 +33,8 @@ namespace HS.DB.Command
             return this;
         }
 
-        public override DBData Excute() { using (Command) return new DBDataMySQL(Command.ExecuteReader()); }
-        public override async Task<DBData> ExcuteAsync() { using (Command) return new DBDataMySQL((MySqlDataReader) await Command.ExecuteReaderAsync()); }
+        public override DBResult Excute() { using (Command) return new DBResultMySQL(Command.ExecuteReader()); }
+        public override async Task<DBResult> ExcuteAsync() { using (Command) return new DBResultMySQL((MySqlDataReader) await Command.ExecuteReaderAsync()); }
 
         public override int ExcuteNonQuery() { using (Command) return Command.ExecuteNonQuery(); }
         public override async Task<int> ExcuteNonQueryAsync() { using (Command) return await Command.ExecuteNonQueryAsync(); }
