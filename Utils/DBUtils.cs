@@ -3,10 +3,11 @@ using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
 #endif
-using HS.DB.Result;
 using System;
 using System.Data.Common;
 using System.Text;
+using HS.DB.Result;
+using HS.Utils.Text;
 
 namespace HS.Utils
 {
