@@ -37,13 +37,14 @@ namespace HS.DB.Connection
             {
                 var sqlBuilder = new SqlConnectionStringBuilder
                 {
-                    DataSource = Param.ContainsKey("Port") ? $"{Server},{Param["Port"]}" : Server,
+                    DataSource = GetParam("Port") != null ? $"{Server},{GetParam("Port")}" : Server,
                     UserID = ID,
                     Password = PW,
                     InitialCatalog = DB,
                     ConnectTimeout = Timeout,
                 };
-                foreach (var pair in Param) sqlBuilder.Add(pair.Key, pair.Value);
+                foreach (var pair in Param)
+                    if (pair.Key.ToUpper() != "PORT") sqlBuilder.Add(pair.Key, pair.Value);
                 return sqlBuilder.ToString();
             }
         }
@@ -62,6 +63,7 @@ namespace HS.DB.Connection
                 }
             }
         }
+        public override string ServerVersion => Connector.ServerVersion;
 
         public override DBManager Open()
         {

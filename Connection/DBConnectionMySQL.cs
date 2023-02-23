@@ -52,6 +52,7 @@ namespace HS.DB.Connection
                 }
             }
         }
+        public override string ServerVersion => Connector.ServerVersion;
 
 
         public override DBManager Open()

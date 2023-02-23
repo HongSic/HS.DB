@@ -20,6 +20,7 @@ namespace HS.DB
         //public virtual DBStatus Status { get { return _Status; } protected set { _Status = value; OnDBStatusChanged(this, value); } }
 
         public abstract DBStatus Status { get; }
+        public abstract string ServerVersion { get; }
 
         public abstract string ConnectionString { get; }
 
@@ -59,6 +60,17 @@ namespace HS.DB
         protected virtual void OnDBStatusChanged(object sender, DBStatus Status)
         {
             if (StatusChanged != null) try { StatusChanged.Invoke(this, Status); } catch { }
+        }
+
+        protected string GetParam(string Key)
+        {
+            if(Param != null)
+            {
+                if (Param.ContainsKey(Key)) return Param[Key];
+                else if (Param.ContainsKey(Key.ToLower())) return Param[Key.ToLower()];
+                else if (Param.ContainsKey(Key.ToUpper())) return Param[Key.ToUpper()];
+            }
+            return null;
         }
     }
 }
