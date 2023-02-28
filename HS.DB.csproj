@@ -22,7 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AWSSDK.RDS" Version="3.7.114.25" />
+    <PackageReference Include="AWSSDK.RDS" Version="3.7.114.28" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.1.0" />
     <PackageReference Include="Microsoft.Data.SqlClient.SNI.runtime" Version="5.1.0" />
     <PackageReference Include="MySql.Data" Version="8.0.32" />
