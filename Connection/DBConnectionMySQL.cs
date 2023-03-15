@@ -1,8 +1,8 @@
 ﻿using HS.DB.Manager;
 using MySql.Data.MySqlClient;
+using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
 using System.Threading.Tasks;
 
 namespace HS.DB.Connection
@@ -24,16 +24,24 @@ namespace HS.DB.Connection
         {
             get 
             {
-                var sqlBuilder = new SqlConnectionStringBuilder
+                var sqlBuilder = new MySqlConnectionStringBuilder
                 {
-                    DataSource = Server,
-                    
+                    Server = Server,
+
                     UserID = ID,
                     Password = PW,
-                    InitialCatalog = DB,
-                    ConnectTimeout = Timeout,
+                    Database = DB,
+                    ConnectionTimeout = (uint)Timeout,
                 };
-                foreach(var pair in Param) sqlBuilder.Add(pair.Key, pair.Value);
+                foreach (var pair in Param)
+                {
+                    if (string.Equals(pair.Key, "Port", StringComparison.InvariantCultureIgnoreCase))
+                    {
+                        uint.TryParse(pair.Value, out uint port);
+                        sqlBuilder.Port = port < 1 ? PORT : port;
+                    }
+                    else sqlBuilder.Add(pair.Key, pair.Value);
+                }
                 return sqlBuilder.ToString();
             }
         }

@@ -7,6 +7,7 @@ using HS.DB.Manager;
 using System.Data;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System;
 
 namespace HS.DB.Connection
 {
@@ -35,16 +36,18 @@ namespace HS.DB.Connection
         {
             get
             {
+                int.TryParse(GetParam("Port"), out int port);
+                port = port < 1 ? PORT : port;
                 var sqlBuilder = new SqlConnectionStringBuilder
                 {
-                    DataSource = GetParam("Port") != null ? $"{Server},{GetParam("Port")}" : Server,
+                    DataSource = $"{Server},{port}",
                     UserID = ID,
                     Password = PW,
                     InitialCatalog = DB,
                     ConnectTimeout = Timeout,
                 };
                 foreach (var pair in Param)
-                    if (pair.Key.ToUpper() != "PORT") sqlBuilder.Add(pair.Key, pair.Value);
+                    if (!string.Equals(pair.Key, "Port", StringComparison.InvariantCultureIgnoreCase)) sqlBuilder.Add(pair.Key, pair.Value);
                 return sqlBuilder.ToString();
             }
         }

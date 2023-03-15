@@ -8,6 +8,8 @@ using System.Data.Common;
 using System.Text;
 using HS.DB.Result;
 using HS.Utils.Text;
+using HS.DB.Manager;
+using HS.DB;
 
 namespace HS.Utils
 {
@@ -205,6 +207,13 @@ namespace HS.Utils
             else if (type == typeof(DateTime)) return "datetime";
             else if (type == typeof(TimeSpan)) return "timespan";
             else return "string";
+        }
+
+        public static char GetPreparePrefix(this DBManager Connection)
+        {
+            Type type_con = Connection.GetType();
+            if (type_con == typeof(DBManagerOracle)) return ':';
+            return '@';
         }
     }
 }
