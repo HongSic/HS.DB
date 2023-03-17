@@ -1,7 +1,8 @@
 ﻿using HS.DB.Extension.Attributes;
-using HS.DB;
+using HS.DB.Manager;
 using HS.DB.Result;
 using HS.DB.Utils;
+using HS.Utils;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -14,21 +15,23 @@ namespace HS.DB.Extension
     {
         public static async Task<bool> SQLInsert<T>(this DBManager Manager, T Instance) where T : class
         {
+            var p = Manager.GetPreparePrefix();
+            bool isMySQL = Manager is DBManagerMySQL;
             Type type = Instance.GetType();
-            var columns = GetColumns(type, out string _);
+            var columns = GetColumns(type, Instance, out string _);
             bool First = true;
 
             StringBuilder sb = new StringBuilder("INSERT INTO ");
 
             //테이블
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false)) 
-                sb.Append(attr.ToString(true, type.Name));
+                sb.Append(attr.ToString(isMySQL, type.Name));
 
             //컬럼
             foreach (var col in columns)
             {
                 sb.Append(First ? " (" : ", ");
-                sb.Append($"`{col.Key}`");
+                sb.Append(isMySQL ? $"`{col.Key}`" : col.Key);
                 First = false;
             }
 
@@ -40,21 +43,23 @@ namespace HS.DB.Extension
             foreach (var col in columns)
             {
                 VALUES.Add(col.Key, col.Value.GetValue(Instance));
-                sb.Append(First ? null : ", ").Append($"@{col.Key}");
+                sb.Append(First ? null : ", ").Append($"{p}{col.Key}");
                 First = false;
             }
             sb.Append(")");
 
             using (var prepare = Manager.Prepare(sb.ToString()))
             {
-                foreach (var item in VALUES) prepare.Add($"@{item.Key}", item.Value);
+                foreach (var item in VALUES) prepare.Add($"{p}{item.Key}", item.Value);
                 return await prepare.ExcuteNonQueryAsync() > 0;
             }
         }
         public static async Task<bool> SQLUpdate<T>(this DBManager Manager, T Instance) where T : class
         {
+            var p = Manager.GetPreparePrefix();
+            bool isMySQL = Manager is DBManagerMySQL;
             Type type = Instance.GetType();
-            var columns = GetColumns(type, out string _);
+            var columns = GetColumns(type, Instance, out string _);
             bool First = true;
 
             StringBuilder sb = new StringBuilder("UPDATE ");
@@ -71,19 +76,19 @@ namespace HS.DB.Extension
                 if(col.Value.Where == null)
                 {
                     sb.Append(First ? null : ", ");
-                    sb.Append($"`{col.Key}`=@{col.Key}");
+                    sb.Append(isMySQL ? $"`{col.Key}`" : col.Key).Append($" ={p}{col.Key}");
                     First = false;
                 }
             }
 
             //조건 (Primary Key)
-            var where = BuildWhere(columns);
+            var where = BuildWhere(columns, p, isMySQL);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             using (var prepare = Manager.Prepare(sb.ToString()))
             {
                 //foreach (var item in VALUES) prepare.Add($"@{item.Key}", item.Value);
-                foreach(var col in columns) prepare.Add($"@{col.Key}", col.Value.GetValue(Instance));
+                foreach(var col in columns) prepare.Add($"{p}{col.Key}", col.Value.GetValue(Instance));
                 return await prepare.ExcuteNonQueryAsync() > 0;
             }
         }
@@ -91,8 +96,10 @@ namespace HS.DB.Extension
         #region SQLQuery
         public static async Task<bool> SQLQuery<T>(this DBManager Manager, T Instance) where T : class
         {
+            var p = Manager.GetPreparePrefix();
+            bool isMySQL = Manager is DBManagerMySQL;
             Type type = Instance.GetType();
-            var columns = GetColumns(type, out string Sort);
+            var columns = GetColumns(type, Instance, out string Sort);
             bool First = true;
 
             StringBuilder sb = new StringBuilder("SELECT ");
@@ -102,18 +109,19 @@ namespace HS.DB.Extension
                 if (col.Value.Where == null)
                 {
                     sb.Append(First ? null : ", ");
-                    if (col.Value.OriginName == col.Key) sb.Append($"`{col.Key}`");
-                    else sb.Append($"`{col.Key}`").Append(" AS ").Append($"`{col.Value.OriginName}`");
+                    if (col.Value.OriginName == col.Key) sb.Append(isMySQL ? $"`{col.Key}`" : col.Key);
+                    else sb.Append(isMySQL ? $"`{col.Key}`" : col.Key).Append(" AS ").Append(isMySQL ? $"`{col.Value.OriginName}`" : col.Value.OriginName);
                     First = false;
                 }
             }
 
             //테이블
+            sb.Append(" FROM ");
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(true, type.Name));
+                sb.Append(attr.ToString(isMySQL, type.Name));
 
             //조건
-            var where = BuildWhere(columns);
+            var where = BuildWhere(columns, p, isMySQL);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             //정렬
@@ -121,15 +129,18 @@ namespace HS.DB.Extension
 
             using (var prepare = Manager.Prepare(sb.ToString()))
             {
-                for(int i = 0; i < where.Columns.Count; i++) prepare.Add($"@{where.Columns[i]}", columns[where.Columns[i]].GetValue(Instance));
-                using (var data = await prepare.ExcuteAsync())
+                for(int i = 0; i < where.Columns.Count; i++) prepare.Add($"{p}{where.Columns[i]}", columns[where.Columns[i]].GetValue(Instance));
+                using (var result = await prepare.ExcuteAsync())
                 {
-                    if (data.MoveNext())
+                    if (result.MoveNext())
                     {
-                        for(int i = 0; i < data.Columns.Length; i++)
+                        foreach(var column in columns)
                         {
-                            string col = data.Columns[i].Name;
-                            columns[col].Info.SetValue(Instance, data[col]);
+                            if(result.ColumnExist(column.Value.OriginName))
+                            {
+                                object value = ConvertValue(column.Value.Type, result[column.Value.OriginName]);
+                                column.Value.Info.SetValue(Instance, value);
+                            }
                         }
                         return true;
                     }
@@ -230,38 +241,8 @@ namespace HS.DB.Extension
                         ColumnDataReflect column = (ColumnDataReflect)data.Columns[i];
 
                         string col = column.ColumnName;
-                        object obj = result[col];
-                        Type type_col = obj.GetType();
-                        
-                        if (column.TypeRef != type_col)
-                        {
-                            if (type_col == typeof(DBNull)) obj = null;
-                            else if (column.TypeRef == typeof(bool))
-                            {
-                                if (type_col == typeof(string)) obj = ((string)obj).ToUpper() == "TRUE";
-                                else obj = Convert.ToBoolean(obj);
-                                /*
-                                if (type_col == typeof(int) ||
-                                    type_col == typeof(long) ||
-                                    type_col == typeof(float) ||
-                                    type_col == typeof(decimal) ||
-                                    type_col == typeof(double)) obj = obj.ToString() == "1";
-                                else if (type_col == typeof(string)) obj = (string)obj;
-                                */
-                            }
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_BYTE) obj = Convert.ToByte(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_SBYTE) obj = Convert.ToSByte(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_USHORT) obj = Convert.ToInt16(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_SHORT) obj = Convert.ToUInt16(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_INT) obj = Convert.ToInt32(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_UINT) obj = Convert.ToUInt32(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_LONG) obj = Convert.ToInt64(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_ULONG) obj = Convert.ToUInt64(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_FLOAT) obj = Convert.ToSingle(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_DOUBLE) obj = Convert.ToDouble(obj);
-                            else if (column.TypeRef == SQLColumnAttribute.TYPE_DATETIME) obj = Convert.ToDecimal(obj);
-                        }
-                        column.Info.SetValue(instance, obj);
+                        object value = ConvertValue(column.TypeRef, result[col]);
+                        column.Info.SetValue(instance, value);
                     }
                     list.Add(instance);
                 }
@@ -274,8 +255,10 @@ namespace HS.DB.Extension
         #region SQLCount
         public static async Task<long> SQLCount<T>(this DBManager Manager, T Instance) where T : class
         {
+            var p = Manager.GetPreparePrefix();
+            bool isMySQL = Manager is DBManagerMySQL;
             Type type = Instance.GetType();
-            var columns = GetColumns(type, out string _);
+            var columns = GetColumns(type, Instance, out string _);
             StringBuilder sb = new StringBuilder("SELECT COUNT(*)");
 
             //테이블
@@ -283,7 +266,7 @@ namespace HS.DB.Extension
                 sb.Append(attr.ToString(true, type.Name));
 
             //조건
-            var where = BuildWhere(columns);
+            var where = BuildWhere(columns, p, isMySQL);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             return long.Parse((await Manager.ExcuteOnceAsync(sb.ToString())).ToString());
@@ -313,7 +296,7 @@ namespace HS.DB.Extension
         private static readonly Type SQLColumnType = typeof(SQLColumnAttribute);
         private static readonly Type SQLWhereType = typeof(SQLWhereAttribute);
         private static readonly Type SQLSortType = typeof(SQLSortAttribute);
-        private static Dictionary<string, ColumnData> GetColumns(Type type, out string Sort)
+        private static Dictionary<string, ColumnData> GetColumns(Type type, object Instance, out string Sort)
         {
             var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
@@ -329,8 +312,8 @@ namespace HS.DB.Extension
                 foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnType, false))
                 {
                     col = string.IsNullOrEmpty(column.Name) ? Info.Name : column.Name;
-                    //PK 면 자동으로 Where 생성
-                    if(column.PrimaryKey) iswhere = new SQLWhereAttribute(WhereKind.Equal, WhereCondition.AND);
+                    //Key 면 자동으로 Where 생성
+                    if (column.Key && !object.Equals(Info.GetValue(Instance), column.IgnoreValue)) iswhere = new SQLWhereAttribute(WhereKind.Equal, WhereCondition.AND);
                 }
                 foreach (SQLWhereAttribute where in Info.GetCustomAttributes(SQLWhereType, false)) iswhere = where;
                 foreach (SQLSortAttribute sort in Info.GetCustomAttributes(SQLSortType, false)) issort = sort;
@@ -358,7 +341,7 @@ namespace HS.DB.Extension
         }
 
         //조건 빌드
-        private static WhereData BuildWhere(Dictionary<string, ColumnData> Columns)
+        private static WhereData BuildWhere(Dictionary<string, ColumnData> Columns, char Prefix, bool isQoute)
         {
             StringBuilder sb = new StringBuilder();
             List<string> where = new List<string>();
@@ -376,9 +359,9 @@ namespace HS.DB.Extension
                         else if (_where.Condition == WhereCondition.OR) sb.Append(" OR ");
                     }
 
-                    if (_where.Kind == WhereKind.Equal) sb.Append($"`{col.Key}`=@{col.Key}");
-                    else if (_where.Kind == WhereKind.NotEqual) sb.Append($"`{col.Key}`<>@{col.Key}");
-                    else if (_where.Kind == WhereKind.LIKE) sb.Append($"`{col.Key}` LIKE @{col.Key}");
+                    if (_where.Kind == WhereKind.Equal) sb.Append(isQoute ? $"`{col.Key}`" : col.Key).Append($" = {Prefix}{col.Key}");
+                    else if (_where.Kind == WhereKind.NotEqual) sb.Append(isQoute ? $"`{col.Key}`" : col.Key).Append($" <> {Prefix}{col.Key}");
+                    else if (_where.Kind == WhereKind.LIKE) sb.Append(isQoute ? $"`{col.Key}`" : col.Key).Append($" LIKE {Prefix}{col.Key}");
 
                     where.Add(col.Key);
 
@@ -387,6 +370,42 @@ namespace HS.DB.Extension
             }
 
             return new WhereData(sb.ToString(), where);
+        }
+
+        static object ConvertValue(Type OriginalType, object Value)
+        {
+            Type type_col = Value.GetType();
+
+            if (OriginalType != type_col)
+            {
+                if (type_col == typeof(DBNull)) Value = null;
+                else if (OriginalType == typeof(bool))
+                {
+                    if (type_col == typeof(string)) Value = ((string)Value).ToUpper() == "TRUE";
+                    else Value = Convert.ToBoolean(Value);
+                    /*
+                    if (type_col == typeof(int) ||
+                        type_col == typeof(long) ||
+                        type_col == typeof(float) ||
+                        type_col == typeof(decimal) ||
+                        type_col == typeof(double)) obj = obj.ToString() == "1";
+                    else if (type_col == typeof(string)) obj = (string)obj;
+                    */
+                }
+                else if (OriginalType == SQLColumnAttribute.TYPE_STRING) Value = Convert.ToString(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_BYTE) Value = Convert.ToByte(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_SBYTE) Value = Convert.ToSByte(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_USHORT) Value = Convert.ToInt16(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_SHORT) Value = Convert.ToUInt16(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_INT) Value = Convert.ToInt32(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_UINT) Value = Convert.ToUInt32(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_LONG) Value = Convert.ToInt64(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_ULONG) Value = Convert.ToUInt64(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_FLOAT) Value = Convert.ToSingle(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_DOUBLE) Value = Convert.ToDouble(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_DATETIME) Value = Convert.ToDecimal(Value);
+            }
+            return Value;
         }
 
         private class ColumnData : SQLColumnAttribute

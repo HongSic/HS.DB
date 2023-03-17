@@ -14,12 +14,13 @@ namespace HS.DB.Extension.Attributes
 
         public string ToString(bool Quote, string TableAlt = null)
         {
-            string table = null;
-            if (!string.IsNullOrEmpty(Scheme)) table = $"{Scheme}.";
-            if (string.IsNullOrEmpty(Name)) table += TableAlt; 
+            string table = string.IsNullOrEmpty(Name) ? TableAlt : Name;
+            if (!string.IsNullOrEmpty(table)) table = Quote ? $"`{table}`" : table;
 
-            if (!string.IsNullOrEmpty(table)) table += Quote ? $"`{Name}`" : Name;
-            return table;
+            string scheme = Scheme;
+            if (!string.IsNullOrEmpty(Scheme)) scheme += '.';
+
+            return scheme + table;
         }
         public override string ToString() => ToString(false);
     }

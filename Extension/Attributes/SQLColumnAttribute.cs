@@ -7,8 +7,9 @@ namespace HS.DB.Extension.Attributes
     public class SQLColumnAttribute : Attribute
     {
         public string Name { get; set; }
-        public bool PrimaryKey { get; set; }
+        public bool Key { get; set; }
         public ColumnType Type { get; set; }
+        public object IgnoreValue { get; set; }
 
         public SQLColumnAttribute() { }
 
@@ -21,41 +22,46 @@ namespace HS.DB.Extension.Attributes
             this.Type = Type;
             this.Name = Name;
         }
-        public SQLColumnAttribute(string Name, bool PrimaryKey)
+        public SQLColumnAttribute(string Name, bool Key, object IgnoreValue = null)
         {
             this.Name = Name;
-            this.PrimaryKey = PrimaryKey;
+            this.Key = Key;
+            this.IgnoreValue = IgnoreValue;
         }
-        public SQLColumnAttribute(string Name, ColumnType Type, bool PrimaryKey)
+        public SQLColumnAttribute(string Name, ColumnType Type, bool Key, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Name = Name;
-            this.PrimaryKey = PrimaryKey;
+            this.Key = Key;
+            this.IgnoreValue = IgnoreValue;
         }
-        public SQLColumnAttribute(string Name, bool PrimaryKey, ColumnType Type)
+        public SQLColumnAttribute(string Name, bool Key, ColumnType Type, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Name = Name;
-            this.PrimaryKey = PrimaryKey;
+            this.Key = Key;
+            this.IgnoreValue = IgnoreValue;
         }
 
-        public SQLColumnAttribute(bool PrimaryKey)
+        public SQLColumnAttribute(bool Key, object IgnoreValue = null)
         {
-            this.PrimaryKey = PrimaryKey;
+            this.Key = Key;
         }
-        public SQLColumnAttribute(bool PrimaryKey, ColumnType Type)
+        public SQLColumnAttribute(bool Key, ColumnType Type, object IgnoreValue = null)
         {
             this.Type = Type;
-            this.PrimaryKey = PrimaryKey;
+            this.Key = Key;
+            this.IgnoreValue = IgnoreValue;
         }
         public SQLColumnAttribute(ColumnType Type)
         {
             this.Type = Type;
         }
-        public SQLColumnAttribute(ColumnType Type, bool PrimaryKey)
+        public SQLColumnAttribute(ColumnType Type, bool Key, object IgnoreValue = null)
         {
             this.Type = Type;
-            this.PrimaryKey = PrimaryKey;
+            this.Key = Key;
+            this.IgnoreValue = IgnoreValue;
         }
 
 
