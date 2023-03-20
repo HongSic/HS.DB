@@ -28,9 +28,6 @@ namespace HS.DB.Connection
             Connector.StateChange += (object sender, StateChangeEventArgs e) => OnDBStatusChanged(this, Status);
         }
 
-        //public override string ConnectionString { get { return string.Format(@"Server={0};uid={1};pwd={2};database={3};timeout={4};Pooling=False;Persist Security Info=True;TrustServerCertificate=False;", Server, ID, PW, DB, Timeout); } }
-        //public override string ConnectionString { get { return string.Format(@"Data Source={0}, {1};UID={2};PWD={3};DATABASE={4};TIMEOUT={5};TrustServerCertificate=true", Server, Port, ID, PW, DB, Timeout); } }
-
 
         public override string ConnectionString
         {
@@ -45,6 +42,7 @@ namespace HS.DB.Connection
                     Password = PW,
                     InitialCatalog = DB,
                     ConnectTimeout = Timeout,
+                    TrustServerCertificate = true
                 };
                 foreach (var pair in Param)
                     if (!string.Equals(pair.Key, "Port", StringComparison.InvariantCultureIgnoreCase)) sqlBuilder.Add(pair.Key, pair.Value);
@@ -88,8 +86,7 @@ namespace HS.DB.Connection
         {
             return  Connect(Server, ID, PW, DB, Timeout, new Dictionary<string, string>()
             {
-                { "Port", Port.ToString() },
-                { "TrustServerCertificate", true.ToString() },
+                { "Port", Port.ToString() }
             });
         }
         public static DBManagerMSSQL Connect(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param)
@@ -104,7 +101,6 @@ namespace HS.DB.Connection
             return await ConnectAsync(Server, ID, PW, DB, Timeout, new Dictionary<string, string>()
             {
                 { "Port", Port.ToString() },
-                { "TrustServerCertificate", true.ToString() },
             });
         }
         public static async Task<DBManagerMSSQL> ConnectAsync(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param)
