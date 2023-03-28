@@ -283,6 +283,43 @@ namespace HS.DB.Extension
         }
         #endregion
 
+        #region SQL Instance
+        public static T ToInstance<T>(this DBResult Result)
+        {
+            Type type = typeof(T);
+            T Instance = (T)Activator.CreateInstance(type);
+            return Apply(Result, Instance);
+        }
+        public static T Apply<T>(this DBResult Result, T Instance)
+        {
+            Type type = typeof(T);
+            var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+
+            var func = new Action<dynamic, Type>((Info, Type) =>
+            {
+                foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnType, false))
+                {
+                    string ColumnName = string.IsNullOrEmpty(column.Name) ? Info.Name : column.Name;
+                    if (Result.ColumnExist(ColumnName))
+                    {
+                        object value = ConvertValue(Type, Result[ColumnName]);
+                        Info.SetValue(Instance, value);
+                    }
+                }
+            });
+
+            for (int i = 0; i < properties.Length; i++)
+                func(properties[i], properties[i].PropertyType);
+
+            for (int i = 0; i < fields.Length; i++)
+                func(fields[i], fields[i].FieldType);
+
+            return Instance;
+        }
+
+        #endregion
+
         #region SQLExist
         /*
         public static async Task<bool> SQLExist<T>(this DBManager Manager, T Instance) where T : class
