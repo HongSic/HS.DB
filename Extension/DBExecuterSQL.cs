@@ -30,6 +30,7 @@ namespace HS.DB.Extension
             //컬럼
             foreach (var col in columns)
             {
+                //col.Value.IgnoreValue == col.Value.Info.
                 sb.Append(First ? " (" : ", ");
                 sb.Append(isMySQL ? $"`{col.Key}`" : col.Key);
                 First = false;
@@ -346,18 +347,20 @@ namespace HS.DB.Extension
                 SQLWhereAttribute iswhere = null;
                 SQLSortAttribute issort = null;
 
+                bool Include = false;
                 foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnType, false))
                 {
                     col = string.IsNullOrEmpty(column.Name) ? Info.Name : column.Name;
                     //Key 면 자동으로 Where 생성
-                    if (column.Key && !object.Equals(Info.GetValue(Instance), column.IgnoreValue)) iswhere = new SQLWhereAttribute(WhereKind.Equal, WhereCondition.AND);
+                    Include = !object.Equals(Info.GetValue(Instance), column.IgnoreValue);
+                    if (column.Key && Include) iswhere = new SQLWhereAttribute(WhereKind.Equal, WhereCondition.AND);
                 }
                 foreach (SQLWhereAttribute where in Info.GetCustomAttributes(SQLWhereType, false)) iswhere = where;
                 foreach (SQLSortAttribute sort in Info.GetCustomAttributes(SQLSortType, false)) issort = sort;
 
                 if (col != null)
                 {
-                    Columns.Add(col, new ColumnData(Info, Type, iswhere));
+                    if(Include) Columns.Add(col, new ColumnData(Info, Type, iswhere));
                     return issort?.ToString(col);
                 }
 

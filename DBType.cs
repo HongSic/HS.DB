@@ -1,18 +1,18 @@
-﻿/*
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace HS.DB
 {
+    /*
     public enum DBType
     {
-        Varchar,
+        Auto,
+        String,
         Decimal,
         Integer,
-        ByteArray,
-        Datetime,
-        Etc
+        Data,
+        Datetime
     }
+    */
 }
-*/
