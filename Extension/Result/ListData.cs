@@ -30,11 +30,11 @@ namespace HS.DB.Extension
         private static readonly Type SQLWhereType = typeof(SQLWhereAttribute);
         private static readonly Type SQLSortType = typeof(SQLSortAttribute);
 
-        public static ListData FromInstance<T>() where T : class => FromInstance<T>(out _);
-        public static ListData FromInstance<T>(out string Table) where T : class => FromInstance((T)Activator.CreateInstance(typeof(T)), false, out Table);
-        public static ListData FromInstance<T>(T Instance) where T : class => FromInstance(Instance, out _);
-        public static ListData FromInstance<T>(T Instance, out string Table) where T : class => FromInstance(Instance, true, out Table);
-        private static ListData FromInstance<T>(T Instance, bool WhereInclude, out string Table) where T : class
+        public static ListData FromInstance<T>(DBManager Manager = null) where T : class => FromInstance<T>(out _, Manager);
+        public static ListData FromInstance<T>(out string Table, DBManager Manager = null) where T : class => FromInstance((T)Activator.CreateInstance(typeof(T)), false, out Table, Manager);
+        public static ListData FromInstance<T>(T Instance, DBManager Manager = null) where T : class => FromInstance(Instance, out _, Manager);
+        public static ListData FromInstance<T>(T Instance, out string Table, DBManager Manager = null) where T : class => FromInstance(Instance, true, out Table, Manager);
+        private static ListData FromInstance<T>(T Instance, bool WhereInclude, out string Table, DBManager Manager = null) where T : class
         {
             var type = Instance.GetType();
             var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
@@ -80,7 +80,7 @@ namespace HS.DB.Extension
                 func(fields[i], fields[i].FieldType);
 
             Table = type.Name;
-            foreach (SQLTableAttribute table in type.GetCustomAttributes(SQLTableType, false)) Table = table.ToString(true);
+            foreach (SQLTableAttribute table in type.GetCustomAttributes(SQLTableType, false)) Table = table.ToString(Manager);
             return new ListData(Columns, Where, Sort);
         }
 

@@ -1,4 +1,5 @@
 ﻿using HS.DB.Command;
+using HS.Utils;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -97,7 +98,7 @@ namespace HS.DB.Extension
         /// 
         /// </summary>
         /// <param name="Conn">SQL 커넥션</param>
-        /// <param name="Table">게시판 테이블 이름</param>
+        /// <param name="Table">테이블 이름</param>
         /// <param name="Offset">불러올 오프셋</param>
         /// <param name="Count">불러올 갯수 (-1 면 모두)</param>
         /// <param name="Columns">가져올 열 (null 이면 모두 가져오기)</param>
@@ -106,7 +107,7 @@ namespace HS.DB.Extension
         /// <returns></returns>
         public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, List<ColumnData> Columns = null, List<ColumnWhere> Where = null, ColumnOrderBy Sort = null)
         {
-            var where = ColumnWhere.JoinForStatement(Where);
+            var where = ColumnWhere.JoinForStatement(Where, Conn);
             string where_query = where?.QueryString();
             string where_limit = Count < 0 ? null : $" LIMIT {Offset}, {Count}";
 
@@ -116,7 +117,7 @@ namespace HS.DB.Extension
                 bool First = true;
                 foreach (var col in Columns)
                 {
-                    string name = $"`{col.ColumnName}`";
+                    string name = Conn.GetQuote(col.ColumnName);
                     if (First) sb.Append(name);
                     else sb.Append(',').Append(name);
                     First = false;
@@ -147,9 +148,10 @@ namespace HS.DB.Extension
         /// <returns></returns>
         public static async Task<long> Count(DBManager Conn, string Table, List<ColumnWhere> Where = null, bool Close = false)
         {
+            char Prefix = Conn.GetStatementPrefix();
             try
             {
-                var where = ColumnWhere.JoinForStatement(Where);
+                var where = ColumnWhere.JoinForStatement(Where, Conn);
                 string where_query = where?.QueryString();
                 StringBuilder sb = new StringBuilder("SELECT COUNT(*) FROM ").Append(Table);
 

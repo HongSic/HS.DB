@@ -15,8 +15,7 @@ namespace HS.DB.Extension
     {
         public static async Task<bool> SQLInsert<T>(this DBManager Manager, T Instance) where T : class
         {
-            var p = Manager.GetPreparePrefix();
-            bool isMySQL = Manager is DBManagerMySQL;
+            var p = Manager.GetStatementPrefix();
             Type type = Instance.GetType();
             var columns = GetColumns(type, Instance, out string _);
             bool First = true;
@@ -25,14 +24,14 @@ namespace HS.DB.Extension
 
             //테이블
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false)) 
-                sb.Append(attr.ToString(isMySQL, type.Name));
+                sb.Append(attr.ToString(Manager, type.Name));
 
             //컬럼
             foreach (var col in columns)
             {
                 //col.Value.IgnoreValue == col.Value.Info.
                 sb.Append(First ? " (" : ", ");
-                sb.Append(isMySQL ? $"`{col.Key}`" : col.Key);
+                sb.Append(Manager.GetQuote(col.Key));
                 First = false;
             }
 
@@ -57,7 +56,7 @@ namespace HS.DB.Extension
         }
         public static async Task<bool> SQLUpdate<T>(this DBManager Manager, T Instance) where T : class
         {
-            var p = Manager.GetPreparePrefix();
+            var p = Manager.GetStatementPrefix();
             bool isMySQL = Manager is DBManagerMySQL;
             Type type = Instance.GetType();
             var columns = GetColumns(type, Instance, out string _);
@@ -67,7 +66,7 @@ namespace HS.DB.Extension
 
             //테이블
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(true, type.Name));
+                sb.Append(attr.ToString(Manager, type.Name));
 
             sb.Append(" SET ");
 
@@ -83,7 +82,7 @@ namespace HS.DB.Extension
             }
 
             //조건 (Primary Key)
-            var where = BuildWhere(columns, p, isMySQL);
+            var where = BuildWhere(columns, Manager);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             using (var prepare = Manager.Prepare(sb.ToString()))
@@ -97,8 +96,7 @@ namespace HS.DB.Extension
         #region SQLQuery
         public static async Task<bool> SQLQuery<T>(this DBManager Manager, T Instance) where T : class
         {
-            var p = Manager.GetPreparePrefix();
-            bool isMySQL = Manager is DBManagerMySQL;
+            var p = Manager.GetStatementPrefix();
             Type type = Instance.GetType();
             var columns = GetColumns(type, Instance, out string Sort);
             bool First = true;
@@ -110,8 +108,8 @@ namespace HS.DB.Extension
                 if (col.Value.Where == null)
                 {
                     sb.Append(First ? null : ", ");
-                    if (col.Value.OriginName == col.Key) sb.Append(isMySQL ? $"`{col.Key}`" : col.Key);
-                    else sb.Append(isMySQL ? $"`{col.Key}`" : col.Key).Append(" AS ").Append(isMySQL ? $"`{col.Value.OriginName}`" : col.Value.OriginName);
+                    if (col.Value.OriginName == col.Key) sb.Append(Manager.GetQuote(col.Key));
+                    else sb.Append(Manager.GetQuote(col.Key)).Append(" AS ").Append(Manager.GetQuote(col.Value.OriginName));
                     First = false;
                 }
             }
@@ -119,10 +117,10 @@ namespace HS.DB.Extension
             //테이블
             sb.Append(" FROM ");
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(isMySQL, type.Name));
+                sb.Append(attr.ToString(Manager, type.Name));
 
             //조건
-            var where = BuildWhere(columns, p, isMySQL);
+            var where = BuildWhere(columns, Manager);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             //정렬
@@ -230,7 +228,7 @@ namespace HS.DB.Extension
                 }
             }
             */
-            var data = ListData.FromInstance<T>(out string Table);
+            var data = ListData.FromInstance<T>(out string Table, Manager);
             using (DBResult result = await DBExecuter.ListBuild(Manager, Table, Offset, Count, data.Columns, Where, data.Sort).ExcuteAsync())
             {
                 List<T> list = new List<T>();
@@ -256,18 +254,16 @@ namespace HS.DB.Extension
         #region SQLCount
         public static async Task<long> SQLCount<T>(this DBManager Manager, T Instance) where T : class
         {
-            var p = Manager.GetPreparePrefix();
-            bool isMySQL = Manager is DBManagerMySQL;
             Type type = Instance.GetType();
             var columns = GetColumns(type, Instance, out string _);
             StringBuilder sb = new StringBuilder("SELECT COUNT(*)");
 
             //테이블
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(true, type.Name));
+                sb.Append(attr.ToString(Manager, type.Name));
 
             //조건
-            var where = BuildWhere(columns, p, isMySQL);
+            var where = BuildWhere(columns, Manager);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             return long.Parse((await Manager.ExcuteOnceAsync(sb.ToString())).ToString());
@@ -278,7 +274,7 @@ namespace HS.DB.Extension
 
             string Table = null;
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                Table = attr.ToString(true, type.Name);
+                Table = attr.ToString(Manager, type.Name);
 
             return await DBExecuter.Count(Manager, Table, Where);
         }
@@ -381,8 +377,9 @@ namespace HS.DB.Extension
         }
 
         //조건 빌드
-        private static WhereData BuildWhere(Dictionary<string, ColumnData> Columns, char Prefix, bool isQoute)
+        private static WhereData BuildWhere(Dictionary<string, ColumnData> Columns, DBManager Manager = null)
         {
+            char Prefix = Manager == null ? '\0' : Manager.GetStatementPrefix();
             StringBuilder sb = new StringBuilder();
             List<string> where = new List<string>();
             bool First = true;
@@ -399,9 +396,9 @@ namespace HS.DB.Extension
                         else if (_where.Condition == WhereCondition.OR) sb.Append(" OR ");
                     }
 
-                    if (_where.Kind == WhereKind.Equal) sb.Append(isQoute ? $"`{col.Key}`" : col.Key).Append($" = {Prefix}{col.Key}");
-                    else if (_where.Kind == WhereKind.NotEqual) sb.Append(isQoute ? $"`{col.Key}`" : col.Key).Append($" <> {Prefix}{col.Key}");
-                    else if (_where.Kind == WhereKind.LIKE) sb.Append(isQoute ? $"`{col.Key}`" : col.Key).Append($" LIKE {Prefix}{col.Key}");
+                    if (_where.Kind == WhereKind.Equal) sb.Append(Manager.GetQuote(col.Key)).Append($" = {Prefix}{col.Key}");
+                    else if (_where.Kind == WhereKind.NotEqual) sb.Append(Manager.GetQuote(col.Key)).Append($" <> {Prefix}{col.Key}");
+                    else if (_where.Kind == WhereKind.LIKE) sb.Append(Manager.GetQuote(col.Key)).Append($" LIKE {Prefix}{col.Key}");
 
                     where.Add(col.Key);
 

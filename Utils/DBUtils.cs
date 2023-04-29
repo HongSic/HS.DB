@@ -209,11 +209,30 @@ namespace HS.Utils
             else return "string";
         }
 
-        public static char GetPreparePrefix(this DBManager Connection)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Connection"></param>
+        /// <returns></returns>
+        public static char GetStatementPrefix(this DBManager Connection)
         {
             Type type_con = Connection.GetType();
             if (type_con == typeof(DBManagerOracle)) return ':';
             return '@';
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Connection"></param>
+        /// <param name="Keyword"></param>
+        /// <returns></returns>
+        public static string GetQuote(this DBManager Connection, string Keyword)
+        {
+            Type type_con = Connection.GetType();
+            if (type_con == typeof(DBManagerOracle)) return $"\"{Keyword}\"";
+            else if (type_con == typeof(DBManagerMySQL)) return $"`{Keyword}`";
+            else if (type_con == typeof(DBManagerMSSQL)) return $"[{Keyword}]";
+            return Keyword;
         }
     }
 }
