@@ -47,7 +47,7 @@ namespace HS.DB.Extension
         /// <param name="Sort">정렬</param>
         /// <param name="Close">커넥션 닫기 여부</param>
         /// <returns></returns>
-        public static async Task<List<Dictionary<string, object>>> List(DBManager Conn, string Table, int Offset, int Count, List<ColumnData> Columns = null, List<ColumnWhere> Where = null, ColumnOrderBy Sort = null, bool Close = false)
+        public static async Task<List<Dictionary<string, object>>> List(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, ColumnOrderBy Sort = null, bool Close = false)
         {
             try
             {
@@ -60,7 +60,7 @@ namespace HS.DB.Extension
                         int count = 1;
                         while (Result.MoveNext())
                         {
-                            Dictionary<string, object> subarr = new Dictionary<string, object>(Columns == null ? Result.ColumnsCount : Columns.Count);
+                            Dictionary<string, object> subarr = new Dictionary<string, object>(Result.ColumnsCount);
                             //번호 할당
                             if (Offset > -1) subarr.Add("no", Offset + count++);
 
@@ -105,14 +105,14 @@ namespace HS.DB.Extension
         /// <param name="Where">조건</param>
         /// <param name="Sort">정렬</param>
         /// <returns></returns>
-        public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, List<ColumnData> Columns = null, List<ColumnWhere> Where = null, ColumnOrderBy Sort = null)
+        public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, ColumnOrderBy Sort = null)
         {
             var where = ColumnWhere.JoinForStatement(Where, Conn);
             string where_query = where?.QueryString();
             string where_limit = Count < 0 ? null : $" LIMIT {Offset}, {Count}";
 
             StringBuilder sb = new StringBuilder("SELECT ");
-            if (Columns?.Count > 0)
+            if (Columns != null)
             {
                 bool First = true;
                 foreach (var col in Columns)
@@ -146,9 +146,8 @@ namespace HS.DB.Extension
         /// <param name="Where">조건</param>
         /// <param name="Close">커넥션 닫기 여부</param>
         /// <returns></returns>
-        public static async Task<long> Count(DBManager Conn, string Table, List<ColumnWhere> Where = null, bool Close = false)
+        public static async Task<long> Count(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            char Prefix = Conn.GetStatementPrefix();
             try
             {
                 var where = ColumnWhere.JoinForStatement(Where, Conn);

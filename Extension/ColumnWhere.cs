@@ -53,7 +53,7 @@ namespace HS.DB.Extension
 
         public string ToString(DBManager Conn, bool ForStatement, bool Next = false)
         {
-            char Prefix = Conn == null ? '\0' : Conn.GetStatementPrefix();
+            char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
             //string Statement = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
             string Statement = ForStatement ? $"{Prefix}{Column}" : Convert.ToString(Value);
             string RowQuote = Conn == null ? Column : Conn.GetQuote(Column);
@@ -92,7 +92,7 @@ namespace HS.DB.Extension
             {
                 this.Queries = Queries;
                 this.Conn = Conn;
-                this.Prefix = Conn.GetStatementPrefix();
+                this.Prefix = Conn.StatementPrefix;
             }
 
             public DBManager Conn;

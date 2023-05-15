@@ -16,6 +16,12 @@ namespace HS.DB
         public abstract DBConnection Connector { get; }
         public abstract DBConnectionKind Kind { get; }
 
+        /// <summary>
+        /// Prepare (Statement) 를 사용시 접두어
+        /// </summary>
+        public abstract char StatementPrefix { get; }
+        public abstract string GetQuote(string Column);
+
         public abstract DBCommand Prepare(string SQLQuery);
 
         public abstract void StartTransaction();

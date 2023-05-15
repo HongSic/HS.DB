@@ -6,10 +6,29 @@ namespace HS.DB.Extension.Attributes
 {
     public class SQLColumnAttribute : Attribute
     {
+        /// <summary>
+        /// 컬럼 이름
+        /// </summary>
         public string Name { get; set; }
+        /// <summary>
+        /// Primary Key, Unique 여부
+        /// </summary>
         public bool Key { get; set; }
+        /// <summary>
+        /// 컬럼 타입
+        /// </summary>
         public ColumnType Type { get; set; }
+        /// <summary>
+        /// 무시할 값 
+        /// (해당 값을 가진 컬럼은 주어진 값이랑 일치하면 조회/수정/삽입시 영향을 받지 않습니다)
+        /// </summary>
         public object IgnoreValue { get; set; }
+        /// <summary>
+        /// 무시할 값 사용 여부
+        /// </summary>
+        public bool UseIgnoreValue { get; set; }
+
+        public override string ToString() => Name;
 
         public SQLColumnAttribute() { }
 
@@ -22,45 +41,52 @@ namespace HS.DB.Extension.Attributes
             this.Type = Type;
             this.Name = Name;
         }
-        public SQLColumnAttribute(string Name, bool Key, object IgnoreValue = null)
+        public SQLColumnAttribute(string Name, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Name = Name;
             this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
         }
-        public SQLColumnAttribute(string Name, ColumnType Type, bool Key, object IgnoreValue = null)
+        public SQLColumnAttribute(string Name, ColumnType Type, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Name = Name;
             this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
         }
-        public SQLColumnAttribute(string Name, bool Key, ColumnType Type, object IgnoreValue = null)
+        public SQLColumnAttribute(string Name, bool Key, ColumnType Type, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Name = Name;
             this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
         }
 
-        public SQLColumnAttribute(bool Key, object IgnoreValue = null)
+        public SQLColumnAttribute(bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
+            this.IgnoreValue = IgnoreValue;
         }
-        public SQLColumnAttribute(bool Key, ColumnType Type, object IgnoreValue = null)
+        public SQLColumnAttribute(bool Key, ColumnType Type, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
         }
         public SQLColumnAttribute(ColumnType Type)
         {
             this.Type = Type;
         }
-        public SQLColumnAttribute(ColumnType Type, bool Key, object IgnoreValue = null)
+        public SQLColumnAttribute(ColumnType Type, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
         }
 

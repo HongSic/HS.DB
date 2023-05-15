@@ -19,6 +19,9 @@ namespace HS.DB.Manager
         public override DBConnection Connector { get { return conn; } }
         public override DBConnectionKind Kind { get { return DBConnectionKind.MSSQL; } }
 
+        public override char StatementPrefix => '@';
+        public override string GetQuote(string Keyword) => $"[{Keyword}]";
+
         internal DBManagerMSSQL(DBConnectionMSSQL Connector)
         {
             conn = Connector;
