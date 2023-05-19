@@ -2,6 +2,7 @@
 using HS.DB.Utils;
 using HS.Utils;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
@@ -11,14 +12,17 @@ namespace HS.DB.Extension
     {
         private const string DefaultOperator = "AND";
 
-        public static ColumnWhere Like(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, null, Join);
+        public static ColumnWhere Like(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join);
         public static ColumnWhere IsNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS ", Join);
         public static ColumnWhere IsNotNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS NOT ", Join);
 
-        public string Column;
-        public string Operator;
-        public object Value;
-        public string Join;
+        public string Column { get; set; }
+        public string Operator { get; set; }
+        public object Value { get; set; }
+        public string Join { get; set; }
+        public bool IncludeNull { get; set; }
+        public List<ColumnWhere> Sub { get; set; } = new List<ColumnWhere>();
+
         public bool IsLike { get; private set; }
 
         /// <summary>
@@ -51,16 +55,17 @@ namespace HS.DB.Extension
             }
         }
 
-        public string ToString(DBManager Conn, bool ForStatement, bool Next = false)
+        public string ToString(DBManager Conn, bool ForStatement, bool Next = false, bool Parenthesis = false)
         {
             char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
             //string Statement = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
             string Statement = ForStatement ? $"{Prefix}{Column}" : Convert.ToString(Value);
             string RowQuote = Conn == null ? Column : Conn.GetQuote(Column);
+            string pth = Parenthesis ? "(" : null;
 
             string str = Operator == null ?
-            $"{RowQuote} LIKE CONCAT('%%', {(ForStatement ? Statement : Value)}, '%%') " :
-            $"{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
+            $"{pth}{RowQuote} LIKE CONCAT('%%', {(ForStatement ? Statement : Value)}, '%%') " :
+            $"{pth}{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
 
             if (Next) str = $"{Join} {str}";
 
@@ -104,25 +109,74 @@ namespace HS.DB.Extension
 
                 StringBuilder sb = new StringBuilder();
                 bool First = true;
-                foreach (var query in Queries)
+                Stack<Parenthesis1> stack = new Stack<Parenthesis1>();
+                stack.Push(new Parenthesis1(Queries, false));
+
+                bool IsParenthesis = false;
+                while (stack.Count > 0)
                 {
-                    if(query != null)
+                    var quries = stack.Pop();
+                    foreach (var query in quries.Columns)
                     {
-                        sb.Append(" ").Append(query.ToString(Conn, true, !First));
+                        sb.Append(query.ToString(Conn, true, !First, IsParenthesis));
+
+                        if (IsParenthesis = query.Sub?.Count > 0) stack.Push(new Parenthesis(query.Sub, true));
                         if (First) First = false;
                     }
+
+                    if (quries.Close) sb.Append(")");
                 }
+
+                /*
+                Stack<Parenthesis> stack = new Stack<Parenthesis>();
+                foreach (var query in Queries) stack.Push(new Parenthesis(query, false));
+
+                bool IsParenthesis = false;
+                while (stack.Count > 0)
+                {
+                    var data = stack.Pop();
+                    sb.Append(data.Column.ToString(Conn, true, !First, IsParenthesis));
+                    if (First) First = false;
+
+                    if (IsParenthesis = data.Column.Sub?.Count > 0)
+                    {
+                        foreach (var query in data.Column.Sub) stack.Push(new Parenthesis(query, false));
+                        stack.Peek().End = true;
+                    }
+
+                    if (data.End) sb.Append(")");
+                }
+                */
                 return sb.ToString();
             }
 
             public DBCommand Apply(DBCommand stmt)
             {
-                foreach (var var in Queries)
-                    if(var != null && var.Value != null) 
+                Stack<ColumnWhere> stack = new Stack<ColumnWhere>(Queries);
+                while(stack.Count > 0)
+                {
+                    var where = stack.Pop();
+                    if (where != null && (where.IncludeNull || where.Value != null))
                         //stmt.Add(Conn.GetQuote($"{Prefix}{var.Row}"), var.Value);
-                        stmt.Add($"{Prefix}{var.Column}", var.Value);
+                        stmt.Add($"{Prefix}{where.Column}", where.Value);
+
+                    stack.PushAll(where?.Sub);
+                }
 
                 return stmt;
+            }
+
+            class Parenthesis1
+            {
+                public Parenthesis1(IEnumerable<ColumnWhere> Columns, bool Close) { this.Columns = Columns; this.Close = Close; }
+                public IEnumerable<ColumnWhere> Columns;
+                public bool Close;
+            }
+            class Parenthesis
+            {
+                public Parenthesis(ColumnWhere Column, bool End) { this.Column = Column; this.End = End; }
+                public ColumnWhere Column;
+                public bool End;
             }
         }
     }

@@ -86,12 +86,11 @@ namespace HS.DB.Extension
 
         private static ColumnDataReflect _GetColumns(dynamic Info, Type type)
         {
-            ColumnType col_type = ColumnType.AUTO;
             foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnType, false))
             {
                 string col = string.IsNullOrEmpty(column.Name) ? Info.Name : column.Name;
 
-                col_type = col_type == ColumnType.AUTO ? SQLColumnAttribute.CalulateType(type) : column.Type;
+                ColumnType col_type = column.Type == ColumnType.AUTO ? SQLColumnAttribute.CalulateType(type) : column.Type;
 
                 if (col_type == ColumnType.ETC) throw new NotSupportedException("Unsupport type!!");
                 return new ColumnDataReflect(col, col_type, Info, type);

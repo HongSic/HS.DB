@@ -1,5 +1,6 @@
 ﻿using HS.DB.Command;
 using HS.Utils;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -163,11 +164,7 @@ namespace HS.DB.Extension
                     //추가 조건절이 존재하면 할당
                     if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
 
-                    using (var Result = await Stmt.ExcuteAsync())
-                    {
-                        Result.MoveNext();
-                        return (long)Result[0];
-                    }
+                    return Convert.ToInt64(await Stmt.ExcuteOnceAsync());
                 }
             }
             finally { if (Close) Conn.Dispose(); }

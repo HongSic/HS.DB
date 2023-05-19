@@ -274,6 +274,7 @@ namespace HS.DB.Extension
         #endregion
 
         #region SQLCount
+        public static async Task<long> SQLCount(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null) => await DBExecuter.Count(Manager, Table, Where);
         public static async Task<long> SQLCount<T>(this DBManager Manager, T Instance) where T : class
         {
             Type type = Instance.GetType();
@@ -478,6 +479,7 @@ namespace HS.DB.Extension
             {
                 if (type_col == typeof(DBNull)) Value = null;
                 else if (OriginalType == SQLColumnAttribute.TYPE_BOOL) Value = Convert.ToBoolean(Value);
+                else if (OriginalType == SQLColumnAttribute.TYPE_CHAR) Value = Convert.ToChar(Value);
                 else if (OriginalType == SQLColumnAttribute.TYPE_STRING) Value = Convert.ToString(Value)?.Trim();
                 else if (OriginalType == SQLColumnAttribute.TYPE_BYTE) Value = Convert.ToByte(Value);
                 else if (OriginalType == SQLColumnAttribute.TYPE_SBYTE) Value = Convert.ToSByte(Value);

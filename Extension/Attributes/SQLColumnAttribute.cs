@@ -27,71 +27,85 @@ namespace HS.DB.Extension.Attributes
         /// 무시할 값 사용 여부
         /// </summary>
         public bool UseIgnoreValue { get; set; }
+        /// <summary>
+        /// 최대 자릿수 (0 이면 미사용)
+        /// </summary>
+        public int MaxLength { get; set; }
 
         public override string ToString() => Name;
 
         public SQLColumnAttribute() { }
 
-        public SQLColumnAttribute(string Name)
+        public SQLColumnAttribute(string Name, int MaxLength = 0)
         {
             this.Name = Name;
+            this.MaxLength = MaxLength;
         }
-        public SQLColumnAttribute(string Name, ColumnType Type)
+        public SQLColumnAttribute(string Name, ColumnType Type, int MaxLength = 0)
         {
             this.Type = Type;
             this.Name = Name;
+            this.MaxLength = MaxLength;
         }
-        public SQLColumnAttribute(string Name, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
+        public SQLColumnAttribute(string Name, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null, int MaxLength = 0)
         {
             this.Name = Name;
             this.Key = Key;
             this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
+            this.MaxLength = MaxLength;
         }
-        public SQLColumnAttribute(string Name, ColumnType Type, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
-        {
-            this.Type = Type;
-            this.Name = Name;
-            this.Key = Key;
-            this.UseIgnoreValue = UseIgnoreValue;
-            this.IgnoreValue = IgnoreValue;
-        }
-        public SQLColumnAttribute(string Name, bool Key, ColumnType Type, bool UseIgnoreValue = false, object IgnoreValue = null)
+        public SQLColumnAttribute(string Name, ColumnType Type, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null, int MaxLength = 0)
         {
             this.Type = Type;
             this.Name = Name;
             this.Key = Key;
             this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
+            this.MaxLength = MaxLength;
+        }
+        public SQLColumnAttribute(string Name, bool Key, ColumnType Type, int MaxLength = 0, bool UseIgnoreValue = false, object IgnoreValue = null)
+        {
+            this.Type = Type;
+            this.Name = Name;
+            this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
+            this.IgnoreValue = IgnoreValue;
+            this.MaxLength = MaxLength;
         }
 
-        public SQLColumnAttribute(bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
+        public SQLColumnAttribute(bool Key, int MaxLength = 0, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Key = Key;
             this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
+            this.MaxLength = MaxLength;
         }
-        public SQLColumnAttribute(bool Key, ColumnType Type, bool UseIgnoreValue = false, object IgnoreValue = null)
+        public SQLColumnAttribute(bool Key, ColumnType Type, int MaxLength = 0, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Key = Key;
             this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
+            this.MaxLength = MaxLength;
         }
-        public SQLColumnAttribute(ColumnType Type)
+        public SQLColumnAttribute(ColumnType Type, int MaxLength = 0)
         {
             this.Type = Type;
+            this.MaxLength = MaxLength;
         }
-        public SQLColumnAttribute(ColumnType Type, bool Key, bool UseIgnoreValue = false, object IgnoreValue = null)
+        public SQLColumnAttribute(ColumnType Type, bool Key, int MaxLength = 0, bool UseIgnoreValue = false, object IgnoreValue = null)
         {
             this.Type = Type;
             this.Key = Key;
             this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
+            this.MaxLength = MaxLength;
         }
 
 
         internal static readonly Type TYPE_STRING = typeof(string);
+        internal static readonly Type TYPE_CHAR = typeof(char);
         internal static readonly Type TYPE_BOOL = typeof(bool);
         internal static readonly Type TYPE_BOOL_NULL = typeof(bool?);
         internal static readonly Type TYPE_BYTE = typeof(byte);
