@@ -274,24 +274,28 @@ namespace HS.DB.Extension
         #endregion
 
         #region SQLCount
-        public static async Task<long> SQLCount(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null) => await DBExecuter.Count(Manager, Table, Where);
-        public static async Task<long> SQLCount<T>(this DBManager Manager, T Instance) where T : class
+        public static async Task<long> SQLCountAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false) => await DBExecuter.CountAsync(Manager, Table, Where, Close);
+        public static async Task<long> SQLCountAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
-            Type type = Instance.GetType();
-            var columns = GetColumns(type, Instance, out string _);
-            StringBuilder sb = new StringBuilder("SELECT COUNT(*)");
+            try
+            {
+                Type type = Instance.GetType();
+                var columns = GetColumns(type, Instance, out string _);
+                StringBuilder sb = new StringBuilder("SELECT COUNT(*)");
 
-            //테이블
-            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(Manager, type.Name));
+                //테이블
+                foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
+                    sb.Append(attr.ToString(Manager, type.Name));
 
-            //조건
-            var where = BuildWhere(columns, Manager);
-            if (!where.IsEmpty()) sb.Append(where.Where);
+                //조건
+                var where = BuildWhere(columns, Manager);
+                if (!where.IsEmpty()) sb.Append(where.Where);
 
-            return long.Parse((await Manager.ExcuteOnceAsync(sb.ToString())).ToString());
+                return long.Parse((await Manager.ExcuteOnceAsync(sb.ToString())).ToString());
+            }
+            finally { if (Close) Manager.Dispose(); }
         }
-        public static async Task<long> SQLCount<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null)
+        public static async Task<long> SQLCountAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
             Type type = typeof(T);
 
@@ -299,7 +303,21 @@ namespace HS.DB.Extension
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
                 Table = attr.ToString(Manager, type.Name);
 
-            return await DBExecuter.Count(Manager, Table, Where);
+            return await DBExecuter.CountAsync(Manager, Table, Where, Close);
+        }
+        #endregion
+
+        #region SQLMax
+        public static async Task<object> SQLMaxAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) => await DBExecuter.MaxAsync(Manager, Table, Column, Where, Close);
+        public static async Task<object> SQLMaxAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            Type type = typeof(T);
+
+            string Table = null;
+            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
+                Table = attr.ToString(Manager, type.Name);
+
+            return await DBExecuter.MaxAsync(Manager, Table, Column, Where, Close);
         }
         #endregion
 

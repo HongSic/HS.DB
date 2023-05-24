@@ -2,7 +2,6 @@
 using HS.DB.Utils;
 using HS.Utils;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
@@ -21,7 +20,7 @@ namespace HS.DB.Extension
         public object Value { get; set; }
         public string Join { get; set; }
         public bool IncludeNull { get; set; }
-        public List<ColumnWhere> Sub { get; set; } = new List<ColumnWhere>();
+        public SubWhere Sub { get; set; } = new SubWhere();
 
         public bool IsLike { get; private set; }
 
@@ -55,17 +54,16 @@ namespace HS.DB.Extension
             }
         }
 
-        public string ToString(DBManager Conn, bool ForStatement, bool Next = false, bool Parenthesis = false)
+        public string ToString(DBManager Conn, bool ForStatement, bool Next = false)
         {
             char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
             //string Statement = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
             string Statement = ForStatement ? $"{Prefix}{Column}" : Convert.ToString(Value);
             string RowQuote = Conn == null ? Column : Conn.GetQuote(Column);
-            string pth = Parenthesis ? "(" : null;
 
             string str = Operator == null ?
-            $"{pth}{RowQuote} LIKE CONCAT('%%', {(ForStatement ? Statement : Value)}, '%%') " :
-            $"{pth}{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
+            $"{RowQuote} LIKE CONCAT('%%', {(ForStatement ? Statement : Value)}, '%%') " :
+            $"{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
 
             if (Next) str = $"{Join} {str}";
 
@@ -109,6 +107,7 @@ namespace HS.DB.Extension
 
                 StringBuilder sb = new StringBuilder();
                 bool First = true;
+                /*
                 Stack<Parenthesis1> stack = new Stack<Parenthesis1>();
                 stack.Push(new Parenthesis1(Queries, false));
 
@@ -126,28 +125,33 @@ namespace HS.DB.Extension
 
                     if (quries.Close) sb.Append(")");
                 }
-
-                /*
-                Stack<Parenthesis> stack = new Stack<Parenthesis>();
-                foreach (var query in Queries) stack.Push(new Parenthesis(query, false));
-
-                bool IsParenthesis = false;
-                while (stack.Count > 0)
-                {
-                    var data = stack.Pop();
-                    sb.Append(data.Column.ToString(Conn, true, !First, IsParenthesis));
-                    if (First) First = false;
-
-                    if (IsParenthesis = data.Column.Sub?.Count > 0)
-                    {
-                        foreach (var query in data.Column.Sub) stack.Push(new Parenthesis(query, false));
-                        stack.Peek().End = true;
-                    }
-
-                    if (data.End) sb.Append(")");
-                }
                 */
+
+                foreach (var query in Queries)
+                {
+                    _QueryString(query, sb, First);
+                    First = false;
+                }
+
                 return sb.ToString();
+            }
+
+            private void _QueryString(ColumnWhere data, StringBuilder sb, bool First)
+            {
+                // 노드가 null이면 아무것도 하지 않습니다.
+                if (data == null) return;
+
+                // 노드의 값을 추가합니다.
+                sb.Append(data.ToString(Conn, true, !First));
+
+                // 노드의 자식을 추가합니다.
+                if (data.Sub.Count > 0)
+                {
+                    sb.Append($"{data.Sub.Operator} (");
+                    for(int i = 0; i < data.Sub.Count; i++)
+                        _QueryString(data.Sub[i], sb, i == 0);
+                    sb.Append(')');
+                }
             }
 
             public DBCommand Apply(DBCommand stmt)
@@ -166,18 +170,18 @@ namespace HS.DB.Extension
                 return stmt;
             }
 
-            class Parenthesis1
-            {
-                public Parenthesis1(IEnumerable<ColumnWhere> Columns, bool Close) { this.Columns = Columns; this.Close = Close; }
-                public IEnumerable<ColumnWhere> Columns;
-                public bool Close;
-            }
             class Parenthesis
             {
                 public Parenthesis(ColumnWhere Column, bool End) { this.Column = Column; this.End = End; }
                 public ColumnWhere Column;
                 public bool End;
             }
+        }
+
+        public class SubWhere : List<ColumnWhere>
+        {
+            internal SubWhere() : base(5) { }
+            public string Operator { get; set; } = "AND";
         }
     }
 }
