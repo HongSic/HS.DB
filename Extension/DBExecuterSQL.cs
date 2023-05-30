@@ -170,6 +170,11 @@ namespace HS.DB.Extension
             }
         }
 
+        public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class
+        {
+            List<T> list = await SQLQueryAsync<T>(Manager, Where, 0, -1);
+            return list.Count == 0 ? null : list[0];
+        }
         /// <summary>
         /// 
         /// </summary>
@@ -180,7 +185,7 @@ namespace HS.DB.Extension
         /// <returns></returns>
         public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class
         {
-            List<T> list = await SQLQueryAsync<T>(Manager, Where, 1, Offset);
+            List<T> list = await SQLQueryAsync<T>(Manager, Where, Offset, 1);
             return list.Count == 0 ? null : list[0];
         }
         /// <summary>
@@ -192,7 +197,7 @@ namespace HS.DB.Extension
         /// <param name="Count"></param>
         /// <param name="Offset"></param>
         /// <returns></returns>
-        public static async Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Count = -1, int Offset = 0) where T : class
+        public static async Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Offset = 0, int Count = -1) where T : class
         {
             Type type = typeof(T);
             /*
@@ -274,7 +279,9 @@ namespace HS.DB.Extension
         #endregion
 
         #region SQLCount
-        public static async Task<long> SQLCountAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false) => await DBExecuter.CountAsync(Manager, Table, Where, Close);
+        public static Task<long> SQLCountAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false) => DBExecuter.CountAsync(Manager, Table, Where, Close);
+        public static Task<long> SQLCountAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => DBExecuter.CountAsync(Manager, Table, Where, false);
+        [Obsolete("Have a SQL Injection attack risk")]
         public static async Task<long> SQLCountAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
             try
@@ -295,7 +302,7 @@ namespace HS.DB.Extension
             }
             finally { if (Close) Manager.Dispose(); }
         }
-        public static async Task<long> SQLCountAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        public static Task<long> SQLCountAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
             Type type = typeof(T);
 
@@ -303,7 +310,22 @@ namespace HS.DB.Extension
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
                 Table = attr.ToString(Manager, type.Name);
 
-            return await DBExecuter.CountAsync(Manager, Table, Where, Close);
+            return DBExecuter.CountAsync(Manager, Table, Where, Close);
+        }
+        #endregion
+
+        #region SQLDelete
+        public static Task<bool> SQLDeleteAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false) => DBExecuter.DeleteAsync(Manager, Table, Where, Close);
+        public static Task<bool> SQLDeleteAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => DBExecuter.DeleteAsync(Manager, Table, Where, false);
+        public static Task<bool> SQLDeleteAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            Type type = typeof(T);
+
+            string Table = null;
+            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
+                Table = attr.ToString(Manager, type.Name);
+
+            return DBExecuter.DeleteAsync(Manager, Table, Where, Close);
         }
         #endregion
 

@@ -188,6 +188,37 @@ namespace HS.DB.Extension
         }
         #endregion
 
+        #region Delete
+        /// <summary>
+        /// 아이템 삭제
+        /// </summary>
+        /// <param name="Conn">SQL 커넥션</param>
+        /// <param name="Table">게시판 테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
+        public static async Task<bool> DeleteAsync(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            try
+            {
+                var where = ColumnWhere.JoinForStatement(Where, Conn);
+                string where_query = where?.QueryString();
+                StringBuilder sb = new StringBuilder("DELETE FROM ").Append(Table);
+
+                //추가 조건절
+                if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+
+                using (var Stmt = Conn.Prepare(sb.ToString()))
+                {
+                    //추가 조건절이 존재하면 할당
+                    if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+                    return await Stmt.ExcuteNonQueryAsync() > 0;
+                }
+            }
+            finally { if (Close) Conn.Dispose(); }
+        }
+        #endregion
+
         #region Max
         public static async Task<object> MaxAsync(DBManager Conn, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
