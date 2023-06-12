@@ -27,6 +27,11 @@ namespace HS.DB.Command
             Command.Parameters.Add(Value);
             return this;
         }
+        public override DBCommand Add(string Key, object Value)
+        {
+            Command.Parameters.Add(new OracleParameter(Key, Value));
+            return this;
+        }
         public DBCommand Add(string Key, object Value, OracleDbType Type)
         {
             Command.Parameters.Add(Key, Type);

@@ -8,6 +8,7 @@ namespace HS.DB.Command
     {
         public abstract DBCommand Add(DBParam Param);
         public abstract DBCommand Add(object Value);
+        public abstract DBCommand Add(string Key, object Value);
 
         public virtual DBCommand AddRange(params DBParam[] Params)
         {

@@ -236,7 +236,8 @@ namespace HS.DB.Extension
                     //추가 조건절이 존재하면 할당
                     if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
 
-                    return await Stmt.ExcuteOnceAsync();
+                    var result = await Stmt.ExcuteOnceAsync();
+                    return result is DBNull ? null : result;
                 }
             }
             finally { if (Close) Conn.Dispose(); }

@@ -92,7 +92,7 @@ namespace HS.DB.Extension
 
                 ColumnType col_type = column.Type == ColumnType.AUTO ? SQLColumnAttribute.CalulateType(type) : column.Type;
 
-                if (col_type == ColumnType.ETC) throw new NotSupportedException("Unsupport type!!");
+                if (col_type == ColumnType.ETC) throw new NotSupportedException("Unsupport SQL Column type!!");
                 return new ColumnDataReflect(col, col_type, Info, type);
             }
 

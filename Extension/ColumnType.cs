@@ -7,6 +7,14 @@
         NUMBER,
         DECIMAL,
         STRING,
+        /// <summary>
+        /// Class 및 Struct 만 사용가능
+        /// </summary>
+        JSON,
+        /// <summary>
+        /// Class 및 Struct 만 사용가능
+        /// </summary>
+        XML,
         DATETIME,
         BIN,
         BOOL,
