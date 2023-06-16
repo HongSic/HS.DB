@@ -1,6 +1,7 @@
 ﻿using HS.DB.Extension.Attributes;
 using HS.DB.Result;
 using HS.Utils;
+using HS.Utils.Convert;
 using HS.Utils.Text;
 using System;
 using System.Collections.Generic;
@@ -510,64 +511,21 @@ namespace HS.DB.Extension
 
             return new WhereData(sb.ToString(), where);
         }
+
         /// <summary>
-        /// DB -> 인스턴스
+        /// 값 -> 인스턴스
         /// </summary>
         /// <param name="OriginalType"></param>
         /// <param name="Value"></param>
         /// <returns></returns>
-        static object ConvertValue(Type OriginalType, object Value, ColumnType Type = ColumnType.AUTO)
+        public static object ConvertValue(Type OriginalType, object Value, ColumnType Type = ColumnType.AUTO)
         {
-            Type type_col = Value.GetType();
-
-            if (OriginalType != type_col)
-            {
-                if (type_col == typeof(DBNull)) Value = null;
-                else
-                {
-
-#if NETCORE || NETSTANDARD
-                    if (OriginalType.Namespace == SQLColumnAttribute.TYPE_NULLABLE.Namespace &&
-                        OriginalType.Name.StartsWith(SQLColumnAttribute.TYPE_NULLABLE.Name)) return ConvertValue(Nullable.GetUnderlyingType(OriginalType), Value);
-#endif
-
-                    if (Type == ColumnType.XML) Value = SerializerUtils.DeserializeFromXML(Value.ToString(), OriginalType);
-                    else if (Type == ColumnType.JSON) Value = JSONUtils.DeserializeJSON_NS(Value.ToString(), OriginalType);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_BOOL) Value = Convert.ToBoolean(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_CHAR) Value = Convert.ToChar(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_STRING) Value = Convert.ToString(Value)?.Trim();
-                    else if (OriginalType == SQLColumnAttribute.TYPE_BYTE) Value = Convert.ToByte(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_SBYTE) Value = Convert.ToSByte(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_USHORT) Value = Convert.ToInt16(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_SHORT) Value = Convert.ToUInt16(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_INT) Value = Convert.ToInt32(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_UINT) Value = Convert.ToUInt32(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_LONG) Value = Convert.ToInt64(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_ULONG) Value = Convert.ToUInt64(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_FLOAT) Value = Convert.ToSingle(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_DOUBLE) Value = Convert.ToDouble(Value);
-                    else if (OriginalType == SQLColumnAttribute.TYPE_DATETIME) Value = Convert.ToDateTime(Value);
-                    else
-                    {
-                        if (OriginalType.BaseType == SQLColumnAttribute.TYPE_ENUM)
-                        {
-                            if (type_col == SQLColumnAttribute.TYPE_STRING)
-                            {
-                                string strval = ((string)Value)?.Trim();
-                                //Enum 이름에 숫자를 사용할 수 없으므로 숫자는 실제 값으로 취급
-                                if (int.TryParse(strval, out int Result)) Value = Result;
-                                else Value = Enum.Parse(OriginalType, strval);
-                            }
-                            else Value = Enum.ToObject(OriginalType, Value);
-                        }
-                    }
-                }
-            }
-            else if (type_col == SQLColumnAttribute.TYPE_STRING) return ((string)Value)?.Trim();
-            return Value;
+            if (Type == ColumnType.XML) return ConvertUtils.ConvertValue(Value, OriginalType, ConvertType.XML);
+            else if (Type == ColumnType.JSON) return ConvertUtils.ConvertValue(Value, OriginalType, ConvertType.JSON);
+            else return ConvertUtils.ConvertValue(Value, OriginalType, ConvertType.Auto);
         }
         /// <summary>
-        /// 인스턴스 -> DB
+        /// 인스턴스 -> 값
         /// </summary>
         /// <param name="Type"></param>
         /// <param name="Value"></param>

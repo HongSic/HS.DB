@@ -185,7 +185,7 @@ namespace HS.Utils
             {
                 Type type = value.GetType();
                 if (type == typeof(DBNull)) return null;
-                else if (type == typeof(byte[])) return Convert.ToBase64String((byte[])value, Base64FormattingOptions.None);
+                else if (type == typeof(byte[])) return System.Convert.ToBase64String((byte[])value, Base64FormattingOptions.None);
                 else if (type == typeof(byte) ||
                          type == typeof(short) ||
                          type == typeof(int) ||

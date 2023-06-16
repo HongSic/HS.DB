@@ -1,4 +1,5 @@
-﻿using System;
+﻿using HS.Utils.Convert;
+using System;
 using System.Diagnostics;
 
 //https://www.csharpstudy.com/Data/EF-annotation.aspx
@@ -104,50 +105,30 @@ namespace HS.DB.Extension.Attributes
         }
 
 
-#if NETCORE || NETSTANDARD
-        internal static readonly Type TYPE_NULLABLE = typeof(Nullable);
-#endif
-        internal static readonly Type TYPE_STRING = typeof(string);
-        internal static readonly Type TYPE_CHAR = typeof(char);
-        internal static readonly Type TYPE_ENUM = typeof(Enum);
-        internal static readonly Type TYPE_BOOL = typeof(bool);
-        internal static readonly Type TYPE_BYTE = typeof(byte);
-        internal static readonly Type TYPE_SBYTE = typeof(sbyte);
-        internal static readonly Type TYPE_SHORT = typeof(short);
-        internal static readonly Type TYPE_USHORT = typeof(ushort);
-        internal static readonly Type TYPE_INT = typeof(int);
-        internal static readonly Type TYPE_UINT = typeof(uint);
-        internal static readonly Type TYPE_LONG = typeof(long);
-        internal static readonly Type TYPE_ULONG = typeof(ulong);
-        internal static readonly Type TYPE_DECIMAL = typeof(decimal);
-        internal static readonly Type TYPE_DOUBLE = typeof(double);
-        internal static readonly Type TYPE_FLOAT = typeof(float);
-        internal static readonly Type TYPE_DATETIME = typeof(DateTime);
-        internal static readonly Type TYPE_DATA = typeof(byte[]);
         public static ColumnType CalulateType(Type type)
         {
             Debug.WriteLine(type.FullName);
-            if (type.Equals(TYPE_STRING)) return ColumnType.STRING;
-            else if (type.Equals(TYPE_BOOL)) return ColumnType.BOOL;
-            else if (type.Equals(TYPE_BYTE) ||
-                     type.Equals(TYPE_SBYTE) ||
-                     type.Equals(TYPE_SHORT) ||
-                     type.Equals(TYPE_USHORT) ||
-                     type.Equals(TYPE_INT) ||
-                     type.Equals(TYPE_UINT) ||
-                     type.Equals(TYPE_LONG) ||
-                     type.Equals(TYPE_ULONG)) return ColumnType.NUMBER;
-            else if (type.Equals(TYPE_DECIMAL) ||
-                     type.Equals(TYPE_DOUBLE) ||
-                     type.Equals(TYPE_FLOAT)) return ColumnType.DECIMAL;
-            else if (type.Equals(TYPE_DATETIME)) return ColumnType.DATETIME;
-            else if (type.Equals(TYPE_DATA)) return ColumnType.BIN;
+            if (type.Equals(ConvertUtils.TYPE_STRING)) return ColumnType.STRING;
+            else if (type.Equals(ConvertUtils.TYPE_BOOL)) return ColumnType.BOOL;
+            else if (type.Equals(ConvertUtils.TYPE_BYTE) ||
+                     type.Equals(ConvertUtils.TYPE_SBYTE) ||
+                     type.Equals(ConvertUtils.TYPE_SHORT) ||
+                     type.Equals(ConvertUtils.TYPE_USHORT) ||
+                     type.Equals(ConvertUtils.TYPE_INT) ||
+                     type.Equals(ConvertUtils.TYPE_UINT) ||
+                     type.Equals(ConvertUtils.TYPE_LONG) ||
+                     type.Equals(ConvertUtils.TYPE_ULONG)) return ColumnType.NUMBER;
+            else if (type.Equals(ConvertUtils.TYPE_DECIMAL) ||
+                     type.Equals(ConvertUtils.TYPE_DOUBLE) ||
+                     type.Equals(ConvertUtils.TYPE_FLOAT)) return ColumnType.DECIMAL;
+            else if (type.Equals(ConvertUtils.TYPE_DATETIME)) return ColumnType.DATETIME;
+            else if (type.Equals(ConvertUtils.TYPE_DATA)) return ColumnType.BIN;
             else
             {
-                if (type.BaseType.Equals(TYPE_ENUM)) return ColumnType.NUMBER;
+                if (type.BaseType.Equals(ConvertUtils.TYPE_ENUM)) return ColumnType.NUMBER;
 #if NETCORE || NETSTANDARD
-                else if (type.Namespace == TYPE_NULLABLE.Namespace &&
-                         type.Name.StartsWith(TYPE_NULLABLE.Name)) return CalulateType(Nullable.GetUnderlyingType(type));
+                else if (type.Namespace == ConvertUtils.TYPE_NULLABLE.Namespace &&
+                         type.Name.StartsWith(ConvertUtils.TYPE_NULLABLE.Name)) return CalulateType(Nullable.GetUnderlyingType(type));
 #endif
                 return ColumnType.ETC;
             }
