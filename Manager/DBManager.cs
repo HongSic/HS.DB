@@ -8,6 +8,7 @@ using HS.DB.Result;
 using System;
 using System.Threading.Tasks;
 using HS.DB.Manager;
+using System.Data.Common;
 
 namespace HS.DB
 {
@@ -27,7 +28,9 @@ namespace HS.DB
         public abstract void StartTransaction();
         public abstract void CommitTransaction();
         public abstract void RollbackTransaction();
-        public abstract bool IsTransactionMode { get; }
+        public abstract DbTransaction Transaction { get; }
+
+        public virtual bool IsTransactionMode => Transaction != null;
 
         #region ExcuteArea
         #region Excute

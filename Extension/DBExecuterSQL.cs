@@ -14,6 +14,14 @@ namespace HS.DB.Extension
 {
     public static class DBExecuterSQL
     {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Manager"></param>
+        /// <param name="Instance"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static async Task<bool> SQLInsertAsync<T>(this DBManager Manager, T Instance) where T : class
         {
             var p = Manager.StatementPrefix;
@@ -24,8 +32,12 @@ namespace HS.DB.Extension
             StringBuilder sb = new StringBuilder("INSERT INTO ");
 
             //테이블
-            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false)) 
-                sb.Append(attr.ToString(Manager, type.Name));
+            string Table = null;
+            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
+                Table = attr.ToString(Manager, type.Name);
+
+            if (string.IsNullOrWhiteSpace(Table)) throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
+            else sb.Append(Table);
 
             //컬럼
             foreach (var col in columns)
@@ -66,6 +78,14 @@ namespace HS.DB.Extension
                 return await prepare.ExcuteNonQueryAsync() > 0;
             }
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Manager"></param>
+        /// <param name="Instance"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static async Task<bool> SQLUpdateAsync<T>(this DBManager Manager, T Instance) where T : class
         {
             var p = Manager.StatementPrefix;
@@ -76,8 +96,12 @@ namespace HS.DB.Extension
             StringBuilder sb = new StringBuilder("UPDATE ");
 
             //테이블
+            string Table = null;
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(Manager, type.Name));
+                Table = attr.ToString(Manager, type.Name);
+
+            if (string.IsNullOrWhiteSpace(Table)) throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
+            else sb.Append(Table);
 
             sb.Append(" SET ");
 
@@ -113,6 +137,14 @@ namespace HS.DB.Extension
         }
 
         #region SQLQuery
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Manager"></param>
+        /// <param name="Instance"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static async Task<bool> SQLQueryAsync<T>(this DBManager Manager, T Instance) where T : class
         {
             var p = Manager.StatementPrefix;
@@ -135,8 +167,12 @@ namespace HS.DB.Extension
 
             //테이블
             sb.Append(" FROM ");
+            string Table = null;
             foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(Manager, type.Name));
+                Table = attr.ToString(Manager, type.Name);
+
+            if (string.IsNullOrWhiteSpace(Table)) throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
+            else sb.Append(Table);
 
             //조건
             var where = BuildWhere(columns, Manager);
@@ -170,7 +206,14 @@ namespace HS.DB.Extension
                 }
             }
         }
-
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Manager"></param>
+        /// <param name="Where"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class
         {
             List<T> list = await SQLQueryAsync<T>(Manager, Where, 0, -1);
@@ -184,6 +227,7 @@ namespace HS.DB.Extension
         /// <param name="Where"></param>
         /// <param name="Offset"></param>
         /// <returns></returns>
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class
         {
             List<T> list = await SQLQueryAsync<T>(Manager, Where, Offset, 1);

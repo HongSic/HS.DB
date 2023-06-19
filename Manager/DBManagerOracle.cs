@@ -4,6 +4,7 @@ using HS.DB.Result;
 using HS.DB.Param;
 using Oracle.ManagedDataAccess.Client;
 using System.Threading.Tasks;
+using System.Data.Common;
 
 namespace HS.DB.Manager
 {
@@ -14,7 +15,12 @@ namespace HS.DB.Manager
         public override DBConnectionKind Kind { get { return DBConnectionKind.MySQL; } }
 
         public override char StatementPrefix => ':';
-        public override string GetQuote(string Keyword) => $"\"{Keyword}\"";
+        public override string GetQuote(string Keyword) => EnableQuote ? $"\"{Keyword}\"" : Keyword;
+
+        /// <summary>
+        /// Turn off Quote when Oracle build SQL query
+        /// </summary>
+        public bool EnableQuote { get; set; } = false;
 
         internal DBManagerOracle(DBConnectionOracle Connector)
         {
@@ -23,11 +29,11 @@ namespace HS.DB.Manager
         public override DBCommand Prepare(string SQLQuery) { return new DBCommandOracle(this, SQLQuery); }
 
         #region Transaction
-        private OracleTransaction Transaction;
-        public override void StartTransaction() { Transaction = conn.Connector.BeginTransaction(); }
-        public override void CommitTransaction() { Transaction?.Commit(); Transaction?.Dispose(); Transaction = null; }
-        public override void RollbackTransaction() { Transaction?.Rollback(); Transaction?.Dispose(); Transaction = null; }
-        public override bool IsTransactionMode => Transaction != null;
+        private OracleTransaction _Transaction;
+        public override void StartTransaction() { _Transaction = conn.Connector.BeginTransaction(); }
+        public override void CommitTransaction() { _Transaction?.Commit(); _Transaction?.Dispose(); _Transaction = null; }
+        public override void RollbackTransaction() { _Transaction?.Rollback(); _Transaction?.Dispose(); _Transaction = null; }
+        public override DbTransaction Transaction => _Transaction;
         #endregion
 
         #region ExcuteArea

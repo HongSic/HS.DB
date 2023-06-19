@@ -1,9 +1,8 @@
 ﻿using HS.DB.Connection;
-using HS.DB.Result;
 using HS.DB.Manager;
 using HS.DB.Param;
+using HS.DB.Result;
 using Oracle.ManagedDataAccess.Client;
-using System.Data;
 using System.Threading.Tasks;
 
 namespace HS.DB.Command
@@ -18,7 +17,8 @@ namespace HS.DB.Command
         public DBCommandOracle(DBManagerOracle Manager, string SQLQuery)
         {
             this.Manager = Manager;
-            Command = new OracleCommand(SQLQuery, (OracleConnection)(DBConnectionOracle)Manager.Connector);
+            var conn = (OracleConnection)(DBConnectionOracle)Manager.Connector;
+            Command = new OracleCommand(SQLQuery, conn);
         }
 
         public override DBCommand Add(DBParam Param) { Command.Parameters.Add((OracleParameter)(DBParamOracle)Param); return this; }

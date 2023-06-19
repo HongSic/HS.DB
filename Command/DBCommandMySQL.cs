@@ -17,7 +17,9 @@ namespace HS.DB.Command
         public DBCommandMySQL(DBManagerMySQL Manager, string SQLQuery)
         {
             this.Manager = Manager;
-            Command = new MySqlCommand(SQLQuery, (MySqlConnection)(DBConnectionMySQL)Manager.Connector);
+            var conn = (MySqlConnection)(DBConnectionMySQL)Manager.Connector;
+            var transaction = Manager.IsTransactionMode ? (MySqlTransaction)Manager.Transaction : null;
+            Command = new MySqlCommand(SQLQuery, conn, transaction);
         }
 
         public override DBCommand Add(DBParam Param) { Command.Parameters.Add((MySqlParameter)(DBParamMySQL)Param); return this; }

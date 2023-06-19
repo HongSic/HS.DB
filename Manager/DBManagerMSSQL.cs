@@ -9,6 +9,7 @@ using HS.DB.Result;
 using HS.DB.Param;
 using HS.Utils;
 using System.Threading.Tasks;
+using System.Data.Common;
 
 namespace HS.DB.Manager
 {
@@ -30,11 +31,11 @@ namespace HS.DB.Manager
         public override DBCommand Prepare(string SQLQuery) { return new DBCommandMSSQL(this, SQLQuery); }
 
         #region Transaction
-        private SqlTransaction Transaction;
-        public override void StartTransaction() { Transaction = conn.Connector.BeginTransaction(); }
-        public override void CommitTransaction() { Transaction?.Commit(); Transaction?.Dispose(); Transaction = null; }
-        public override void RollbackTransaction() { Transaction?.Rollback(); Transaction?.Dispose(); Transaction = null; }
-        public override bool IsTransactionMode => Transaction != null;
+        private SqlTransaction _Transaction;
+        public override void StartTransaction() { _Transaction = conn.Connector.BeginTransaction(); }
+        public override void CommitTransaction() { _Transaction?.Commit(); _Transaction?.Dispose(); _Transaction = null; }
+        public override void RollbackTransaction() { _Transaction?.Rollback(); _Transaction?.Dispose(); _Transaction = null; }
+        public override DbTransaction Transaction => _Transaction;
         #endregion
 
 

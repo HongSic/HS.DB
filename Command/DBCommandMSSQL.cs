@@ -23,7 +23,9 @@ namespace HS.DB.Command
         public DBCommandMSSQL(DBManagerMSSQL Manager, string SQLQuery)
         {
             this.Manager = Manager;
-            Command = new SqlCommand(SQLQuery, (SqlConnection)(DBConnectionMSSQL)Manager.Connector);
+            var conn = (SqlConnection)(DBConnectionMSSQL)Manager.Connector;
+            var transaction = Manager.IsTransactionMode ? (SqlTransaction)Manager.Transaction : null;
+            Command = new SqlCommand(SQLQuery, conn, transaction);
         }
 
         public override DBCommand Add(DBParam Param) { Command.Parameters.Add((SqlParameter)(DBParamMSSQL)Param); return this; }
