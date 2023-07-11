@@ -13,7 +13,7 @@ namespace HS.DB.Extension
         /// <param name="Columns">가져올 열 (null 이면 모두 가져오기)</param>
         /// <param name="Where">조건</param>
         /// <param name="Sort">정렬</param>
-        public ListData(List<ColumnData> Columns = null, List<ColumnWhere> Where = null, ColumnOrderBy Sort = null)
+        public ListData(List<ColumnData> Columns = null, List<ColumnWhere> Where = null, List<ColumnOrderBy> Sort = null)
         {
             this.Columns = Columns;
             this.Where = Where;
@@ -21,7 +21,7 @@ namespace HS.DB.Extension
         }
         public List<ColumnData> Columns { get; internal set; }
         public List<ColumnWhere> Where { get; internal set; }
-        public ColumnOrderBy Sort { get; internal set; }
+        public List<ColumnOrderBy> Sort { get; internal set; }
 
 
         private delegate void BuildAction<T1, T2>(T1 Info, T2 Type);
@@ -42,7 +42,7 @@ namespace HS.DB.Extension
 
             List<ColumnData> Columns = new List<ColumnData>(10);
             List<ColumnWhere> Where = WhereInclude ? new List<ColumnWhere>(10) : null;
-            ColumnOrderBy Sort = null;
+            List<ColumnOrderBy> Sort = new List<ColumnOrderBy>(10);
 
             var func = new BuildAction<dynamic, Type>((Info, Type) =>
             {
@@ -66,10 +66,10 @@ namespace HS.DB.Extension
                             case WhereKind.LIKE: wherekind = null; break;
                         }
 
-                        Where.Add(new ColumnWhere(column.ColumnName, Info.GetValue(Instance), wherekind, iswhere.Condition.ToString()));
+                        Where.Add(ColumnWhere.Custom(column.ColumnName, Info.GetValue(Instance), wherekind, iswhere.Condition.ToString()));
                     }
 
-                    if(issort != null) Sort = new ColumnOrderBy(column.ColumnName, issort.Sort);
+                    if(issort != null) Sort.Add(new ColumnOrderBy(column.ColumnName, issort.Sort));
                 }
             });
 

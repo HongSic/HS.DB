@@ -6,6 +6,7 @@ using HS.Utils.Text;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
@@ -26,7 +27,7 @@ namespace HS.DB.Extension
         {
             var p = Manager.StatementPrefix;
             Type type = Instance.GetType();
-            var columns = GetColumns(type, Instance, out string _);
+            var columns = GetColumns(type, Instance, out var _);
             bool First = true;
 
             StringBuilder sb = new StringBuilder("INSERT INTO ");
@@ -90,7 +91,7 @@ namespace HS.DB.Extension
         {
             var p = Manager.StatementPrefix;
             Type type = Instance.GetType();
-            var columns = GetColumns(type, Instance, out string _);
+            var columns = GetColumns(type, Instance, out var _);
             bool First = true;
 
             StringBuilder sb = new StringBuilder("UPDATE ");
@@ -149,7 +150,7 @@ namespace HS.DB.Extension
         {
             var p = Manager.StatementPrefix;
             Type type = Instance.GetType();
-            var columns = GetColumns(type, Instance, out string Sort);
+            var columns = GetColumns(type, Instance, out var Sort);
             bool First = true;
 
             StringBuilder sb = new StringBuilder("SELECT ");
@@ -179,7 +180,17 @@ namespace HS.DB.Extension
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             //정렬
-            if (Sort != null) sb.Append(Sort);
+            if (Sort != null)
+            {
+                First = true;
+                foreach(var sort in Sort)
+                {
+                    if (First) sb.Append(" ORDER BY ");
+                    else sb.Append(", ");
+                    sb.Append(sort.ToString(Manager));
+                    First = false;
+                }
+            }
 
             using (var prepare = Manager.Prepare(sb.ToString()))
             {
@@ -216,7 +227,7 @@ namespace HS.DB.Extension
         /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class
         {
-            List<T> list = await SQLQueryAsync<T>(Manager, Where, 0, -1);
+            List<T> list = await SQLQueryAsync<T>(Manager, Where, null, 0, -1);
             return list.Count == 0 ? null : list[0];
         }
         /// <summary>
@@ -230,7 +241,7 @@ namespace HS.DB.Extension
         /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class
         {
-            List<T> list = await SQLQueryAsync<T>(Manager, Where, Offset, 1);
+            List<T> list = await SQLQueryAsync<T>(Manager, Where, null, Offset, 1);
             return list.Count == 0 ? null : list[0];
         }
         /// <summary>
@@ -239,10 +250,11 @@ namespace HS.DB.Extension
         /// <typeparam name="T"></typeparam>
         /// <param name="Manager"></param>
         /// <param name="Where"></param>
+        /// <param name="Sort">null 이면 인스턴스의 값을 사용합니다</param>
         /// <param name="Count"></param>
         /// <param name="Offset"></param>
         /// <returns></returns>
-        public static async Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Offset = 0, int Count = -1) where T : class
+        public static async Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class
         {
             Type type = typeof(T);
             /*
@@ -301,7 +313,7 @@ namespace HS.DB.Extension
             }
             */
             var data = ListData.FromInstance<T>(out string Table, Manager);
-            using (DBResult result = await DBExecuter.ListBuild(Manager, Table, Offset, Count, data.Columns, Where, data.Sort).ExcuteAsync())
+            using (DBResult result = await DBExecuter.ListBuild(Manager, Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort).ExcuteAsync())
             {
                 List<T> list = new List<T>();
                 while (result.MoveNext())
@@ -332,7 +344,7 @@ namespace HS.DB.Extension
             try
             {
                 Type type = Instance.GetType();
-                var columns = GetColumns(type, Instance, out string _);
+                var columns = GetColumns(type, Instance, out var _);
                 StringBuilder sb = new StringBuilder("SELECT COUNT(*)");
 
                 //테이블
@@ -471,12 +483,13 @@ namespace HS.DB.Extension
         private static readonly Type SQLColumnType = typeof(SQLColumnAttribute);
         private static readonly Type SQLWhereType = typeof(SQLWhereAttribute);
         private static readonly Type SQLSortType = typeof(SQLSortAttribute);
-        private static Dictionary<string, ColumnData> GetColumns(Type type, object Instance, out string Sort)
+        private static Dictionary<string, ColumnData> GetColumns(Type type, object Instance, out List<SQLSortAttribute> Sort)
         {
             var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
 
-            Dictionary<string, ColumnData> Columns = new Dictionary<string, ColumnData>();
+            var Columns = new Dictionary<string, ColumnData>();
+            var Sorts = new List<SQLSortAttribute>(10);
 
             var func = new BuildAction<dynamic, Type>((Info, Type) => 
             {
@@ -504,7 +517,12 @@ namespace HS.DB.Extension
                         if (Columns.ContainsKey(Name)) Columns[Name] = data;
                         else Columns.Add(Name, data);
                     }
-                    return issort?.ToString(Name);
+
+                    if (issort != null)
+                    {
+                        issort.Column = Name;
+                        Sorts.Add(issort);
+                    }
                 }
 
                 return null;
@@ -518,7 +536,7 @@ namespace HS.DB.Extension
             for (int i = 0; i < fields.Length; i++)
                 if (SortOut == null) SortOut = func(fields[i], fields[i].FieldType);
                 else func(fields[i], fields[i].FieldType);
-            Sort = SortOut;
+            Sort = Sorts;
 
             return Columns;
         }

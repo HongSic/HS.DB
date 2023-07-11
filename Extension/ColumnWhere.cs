@@ -1,5 +1,4 @@
 ﻿using HS.DB.Command;
-using HS.DB.Utils;
 using HS.Utils;
 using System;
 using System.Collections.Generic;
@@ -11,9 +10,18 @@ namespace HS.DB.Extension
     {
         private const string DefaultOperator = "AND";
 
+        public static ColumnWhere Raw(string WhereQuery, string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join, WhereQuery);
+        public static ColumnWhere Raw(string WhereQuery, string Join = DefaultOperator) => Raw(WhereQuery, null, null, Join);
         public static ColumnWhere Like(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join);
+        public static ColumnWhere Custom(string Column, object Value, string Operator, string Join = DefaultOperator) => new ColumnWhere(Column, Value, Operator, Join);
+        public static ColumnWhere Is(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "=", Join);
+        public static ColumnWhere IsNot(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "<>", Join);
         public static ColumnWhere IsNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS ", Join);
         public static ColumnWhere IsNotNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS NOT ", Join);
+
+
+        public string WhereQuery { get; set; }
+        public bool IsRaw { get; set; }
 
         public string Column { get; set; }
         public string Operator { get; set; }
@@ -31,13 +39,16 @@ namespace HS.DB.Extension
         /// <param name="Value">값</param>
         /// <param name="Operator">연산자 [=, !=, <>, ...]. 만약 null 이면 Like 문으로 간주</param>
         /// <param name="Join">현재 이 조건의 연결자 [AND, OR, ...]</param>
-        public ColumnWhere(string Column, object Value, string Operator = "=", string Join = DefaultOperator)
+        private ColumnWhere(string Column, object Value, string Operator = "=", string Join = DefaultOperator, string WhereQuery = null)
         {
             this.Column = Column;
             this.Value = Value;
             this.Join = Join;
             this.Operator = Operator;
-            this.IsLike = Operator == null;
+            this.WhereQuery = WhereQuery;
+
+            IsLike = Operator == null;
+            IsRaw = WhereQuery != null;
         }
 
         public Enum ValueType()
@@ -56,14 +67,19 @@ namespace HS.DB.Extension
 
         public string ToString(DBManager Conn, bool ForStatement, bool Next = false)
         {
-            char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
-            //string Statement = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
-            string Statement = ForStatement ? $"{Prefix}{Column}" : Convert.ToString(Value);
-            string RowQuote = Conn == null ? Column : Conn.GetQuote(Column);
+            string str;
+            if (IsRaw) str = WhereQuery;
+            else
+            {
+                char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
+                //string Statement = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
+                string Statement = ForStatement ? $"{Prefix}{Column}" : Convert.ToString(Value);
+                string RowQuote = Conn == null ? Column : Conn.GetQuote(Column);
 
-            string str = Operator == null ?
-            $"{RowQuote} LIKE CONCAT('%%', {(ForStatement ? Statement : Value)}, '%%') " :
-            $"{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
+                str = Operator == null ?
+                $"{RowQuote} LIKE CONCAT('%%', {(ForStatement ? Statement : Value)}, '%%') " :
+                $"{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
+            }
 
             if (Next) str = $"{Join} {str}";
 

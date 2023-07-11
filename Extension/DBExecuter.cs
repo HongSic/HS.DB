@@ -1,6 +1,7 @@
 ﻿using HS.DB.Command;
 using HS.DB.Manager;
 using HS.Utils;
+using Org.BouncyCastle.Crypto;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -50,7 +51,7 @@ namespace HS.DB.Extension
         /// <param name="Sort">정렬</param>
         /// <param name="Close">커넥션 닫기 여부</param>
         /// <returns></returns>
-        public static async Task<List<Dictionary<string, object>>> ListAsync(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, ColumnOrderBy Sort = null, bool Close = false)
+        public static async Task<List<Dictionary<string, object>>> ListAsync(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, bool Close = false)
         {
             try
             {
@@ -106,14 +107,14 @@ namespace HS.DB.Extension
         /// <param name="Count">불러올 갯수 (-1 면 모두)</param>
         /// <param name="Columns">가져올 열 (null 이면 모두 가져오기)</param>
         /// <param name="Where">조건</param>
-        /// <param name="Sort">정렬</param>
+        /// <param name="Sort">정렬 </param>
         /// <returns></returns>
-        public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, ColumnOrderBy Sort = null)
+        public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null)
         {
             StringBuilder sb = new StringBuilder();
 
             var where = ColumnWhere.JoinForStatement(Where, Conn);
-            string where_query =  where?.QueryString();
+            string where_query = where?.QueryString();
             string where_limit = null;
             if(Count > 0)
             {
@@ -147,7 +148,20 @@ namespace HS.DB.Extension
             if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
             //정렬 연산자
-            if (Sort != null) sb.Append(Sort.ToString()).Append(where_limit);
+            if (Sort != null)
+            {
+                bool First = true;
+                foreach (var sort in Sort)
+                {
+                    if (First) sb.Append(" ORDER BY ");
+                    else sb.Append(", ");
+                    sb.Append(sort.ToString(Conn));
+                    First = false;
+                }
+            }
+
+            //
+            sb.Append(where_limit);
 
             var Stmt = Conn.Prepare(sb.ToString());
             //추가 조건절이 존재하면 할당
