@@ -1,5 +1,6 @@
 ﻿using HS.DB.Command;
 using HS.Utils;
+using HS.Utils.Text;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -8,6 +9,7 @@ namespace HS.DB.Extension
 {
     public sealed class ColumnWhere
     {
+        private static readonly Random random = new Random();
         private const string DefaultOperator = "AND";
 
         public static ColumnWhere Raw(string WhereQuery, string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join, WhereQuery);
@@ -33,6 +35,11 @@ namespace HS.DB.Extension
         public bool IsLike { get; private set; }
 
         /// <summary>
+        /// where 바인딩을위한 키
+        /// </summary>
+        internal string BindKey { get; set; }
+
+        /// <summary>
         /// 
         /// </summary>
         /// <param name="Column">컬럼</param>
@@ -49,6 +56,9 @@ namespace HS.DB.Extension
 
             IsLike = Operator == null;
             IsRaw = WhereQuery != null;
+
+
+            this.BindKey = IsRaw ? Column : $"{Column}_{StringUtils.NextString(random, 10)}";
         }
 
         public Enum ValueType()
@@ -73,7 +83,7 @@ namespace HS.DB.Extension
             {
                 char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
                 //string Statement = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
-                string Statement = ForStatement ? $"{Prefix}{Column}" : Convert.ToString(Value);
+                string Statement = ForStatement ? $"{Prefix}{BindKey}" : Convert.ToString(Value);
                 string RowQuote = Conn == null ? Column : Conn.GetQuote(Column);
 
                 str = Operator == null ?
@@ -178,7 +188,7 @@ namespace HS.DB.Extension
                     var where = stack.Pop();
                     if (where != null && (where.IncludeNull || where.Value != null))
                         //stmt.Add(Conn.GetQuote($"{Prefix}{var.Row}"), var.Value);
-                        stmt.Add($"{Prefix}{where.Column}", where.Value);
+                        stmt.Add($"{Prefix}{where.BindKey}", where.Value);
 
                     stack.PushAll(where?.Sub);
                 }
