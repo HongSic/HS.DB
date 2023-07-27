@@ -20,6 +20,10 @@ namespace HS.DB.Extension
         public static ColumnWhere IsNot(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "<>", Join);
         public static ColumnWhere IsNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS ", Join);
         public static ColumnWhere IsNotNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS NOT ", Join);
+        public static ColumnWhere IsBigger(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " > ", Join);
+        public static ColumnWhere IsBiggerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " >= ", Join);
+        public static ColumnWhere IsSmaller(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " < ", Join);
+        public static ColumnWhere IsSmallerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " <= ", Join);
 
 
         public string WhereQuery { get; set; }
