@@ -1,19 +1,33 @@
-﻿using HS.DB.Command;
+﻿using Amazon.RDS.Model;
+using HS.DB.Command;
+using HS.DB.Utils;
 using HS.Utils;
 using HS.Utils.Text;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
 namespace HS.DB.Extension
 {
+    public static class ColumnWhereExtend
+    {
+        public static string GetQueryWhereString(this IEnumerable<ColumnWhere> Queries, DBManager Conn) => ColumnWhere.JoinForStatement(Queries, Conn);
+    }
+
+
     public sealed class ColumnWhere
     {
         private static readonly Random random = new Random();
         private const string DefaultOperator = "AND";
 
-        public static ColumnWhere Raw(string WhereQuery, string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join, WhereQuery);
-        public static ColumnWhere Raw(string WhereQuery, string Join = DefaultOperator) => Raw(WhereQuery, null, null, Join);
+        private static readonly Dictionary<string, object> EmptyRawParam = new Dictionary<string, object>(0);
+
+        #region Raw
+        public static ColumnWhere Raw(string WhereQuery, Dictionary<string, object> RawParams, string Join = DefaultOperator) => new ColumnWhere(WhereQuery, RawParams, Join);
+        public static ColumnWhere Raw(string WhereQuery, string Column, object Value, string Join = DefaultOperator) => Raw(WhereQuery, new Dictionary<string, object>(1) { { Column, Value } }, Join);
+        public static ColumnWhere Raw(string WhereQuery, string Join = DefaultOperator) => Raw(WhereQuery, EmptyRawParam, Join);
+        #endregion
         public static ColumnWhere Like(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join);
         public static ColumnWhere Custom(string Column, object Value, string Operator, string Join = DefaultOperator) => new ColumnWhere(Column, Value, Operator, Join);
         public static ColumnWhere Is(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "=", Join);
@@ -27,7 +41,7 @@ namespace HS.DB.Extension
 
 
         public string WhereQuery { get; set; }
-        public bool IsRaw { get; set; }
+        public bool IsRaw => RawParams != null;
 
         public string Column { get; set; }
         public string Operator { get; set; }
@@ -35,6 +49,8 @@ namespace HS.DB.Extension
         public string Join { get; set; }
         public bool IncludeNull { get; set; }
         public SubWhere Sub { get; set; } = new SubWhere();
+
+        public Dictionary<string, object> RawParams { get; }
 
         public bool IsLike { get; private set; }
 
@@ -50,19 +66,23 @@ namespace HS.DB.Extension
         /// <param name="Value">값</param>
         /// <param name="Operator">연산자 [=, !=, <>, ...]. 만약 null 이면 Like 문으로 간주</param>
         /// <param name="Join">현재 이 조건의 연결자 [AND, OR, ...]</param>
-        private ColumnWhere(string Column, object Value, string Operator = "=", string Join = DefaultOperator, string WhereQuery = null)
+        private ColumnWhere(string Column, object Value, string Operator = "=", string Join = DefaultOperator)
         {
             this.Column = Column;
             this.Value = Value;
             this.Join = Join;
             this.Operator = Operator;
-            this.WhereQuery = WhereQuery;
 
             IsLike = Operator == null;
-            IsRaw = WhereQuery != null;
 
 
-            this.BindKey = IsRaw ? Column : $"{Column}_{StringUtils.NextString(random, 10)}";
+            this.BindKey = $"{Column}_{StringUtils.NextString(random, 10)}";
+        }
+        private ColumnWhere(string WhereQuery, Dictionary<string, object> RawParams, string Join = DefaultOperator)
+        {
+            this.WhereQuery = WhereQuery;
+            this.RawParams = RawParams;
+            this.Join = Join;
         }
 
         public Enum ValueType()
@@ -190,9 +210,19 @@ namespace HS.DB.Extension
                 while(stack.Count > 0)
                 {
                     var where = stack.Pop();
-                    if (where != null && (where.IncludeNull || where.Value != null))
-                        //stmt.Add(Conn.GetQuote($"{Prefix}{var.Row}"), var.Value);
-                        stmt.Add($"{Prefix}{where.BindKey}", where.Value);
+                    if (where != null)
+                    {
+                        if(where.IsRaw)
+                        {
+                            foreach (var raw in where.RawParams)
+                                stmt.Add(raw.Key, raw.Value == null ? DBNull.Value : raw.Value);
+                        }
+                        else if(where.IncludeNull || where.Value != null)
+                        {
+                            //stmt.Add(Conn.GetQuote($"{Prefix}{var.Row}"), var.Value);
+                            stmt.Add($"{Prefix}{where.BindKey}", where.Value == null ? DBNull.Value : where.Value);
+                        }
+                    }
 
                     stack.PushAll(where?.Sub);
                 }
@@ -206,6 +236,9 @@ namespace HS.DB.Extension
                 public ColumnWhere Column;
                 public bool End;
             }
+
+            public override string ToString() => QueryString();
+            public static implicit operator string(Statement statement) => statement.ToString();
         }
 
         public class SubWhere : List<ColumnWhere>

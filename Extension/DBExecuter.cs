@@ -4,6 +4,7 @@ using HS.Utils;
 using Org.BouncyCastle.Crypto;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -115,18 +116,6 @@ namespace HS.DB.Extension
 
             var where = ColumnWhere.JoinForStatement(Where, Conn);
             string where_query = where?.QueryString();
-            string where_limit = null;
-            if(Count > 0)
-            {
-                if (Conn is DBManagerMySQL) where_limit = $" LIMIT {Offset}, {Count}";
-                else if (Conn is DBManagerMSSQL) where_limit = $" OFFSET {Offset} ROWS FETCH NEXT {Count} ROWS ONLY";
-                else if (Conn is DBManagerOracle)
-                {
-                    //Conn.Connector.ServerVersion
-                    sb.Append("SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (");
-                    where_limit = $") a WHERE ROWNUM <= {Count + Offset}) WHERE rnum  >= {Offset};";
-                }
-            }
 
             sb.Append("SELECT ");
             if (Columns != null)
@@ -161,12 +150,38 @@ namespace HS.DB.Extension
             }
 
             //
-            sb.Append(where_limit);
-
-            var Stmt = Conn.Prepare(sb.ToString());
+            string query = LimitBuild(Conn, sb.ToString(), Offset, Count);
+            var Stmt = Conn.Prepare(query);
             //추가 조건절이 존재하면 할당
             if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
             return Stmt;
+        }
+
+        /// <summary>
+        /// Add LIMIT / OFFSET Query (support Oracle, MSSQL(2016~), MySQL)
+        /// </summary>
+        /// <param name="DB"></param>
+        /// <param name="SQLQuery"></param>
+        /// <param name="Offset"></param>
+        /// <param name="Count"></param>
+        /// <returns></returns>
+        public static string LimitBuild(DBManager Conn, string SQLQuery, int Offset, int Count)
+        {
+            StringBuilder builder = new StringBuilder();
+            string where_limit = null;
+            if (Count > 0)
+            {
+                if (Conn is DBManagerMySQL) where_limit = $" LIMIT {Offset}, {Count}";
+                else if (Conn is DBManagerMSSQL) where_limit = $" OFFSET {Offset} ROWS FETCH NEXT {Count} ROWS ONLY";
+                else if (Conn is DBManagerOracle)
+                {
+                    //Conn.Connector.ServerVersion
+                    builder.Append("SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (");
+                    where_limit = $") a WHERE ROWNUM <= {Count + Offset}) WHERE rnum  >= {Offset};";
+                }
+            }
+            builder.Append(SQLQuery).Append(where_limit);
+            return builder.ToString();
         }
         #endregion
 
