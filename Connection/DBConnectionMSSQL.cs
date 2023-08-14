@@ -8,6 +8,7 @@ using System.Data;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
+using HS.Utils.Text;
 
 namespace HS.DB.Connection
 {
@@ -40,12 +41,15 @@ namespace HS.DB.Connection
                     DataSource = $"{Server},{port}",
                     UserID = ID,
                     Password = PW,
-                    InitialCatalog = DB,
                     ConnectTimeout = Timeout,
                     TrustServerCertificate = true
                 };
-                foreach (var pair in Param)
-                    if (!string.Equals(pair.Key, "Port", StringComparison.InvariantCultureIgnoreCase)) sqlBuilder.Add(pair.Key, pair.Value);
+                if (!StringUtils.IsNullOrWhiteSpace(DB)) sqlBuilder.InitialCatalog = DB;
+                if (Param != null)
+                {
+                    foreach (var pair in Param)
+                        if (!string.Equals(pair.Key, "Port", StringComparison.InvariantCultureIgnoreCase)) sqlBuilder.Add(pair.Key, pair.Value);
+                }
                 return sqlBuilder.ToString();
             }
         }
