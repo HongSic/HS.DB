@@ -1,4 +1,5 @@
-﻿using HS.DB.Extension.Attributes;
+﻿using HS.DB.Command;
+using HS.DB.Extension.Attributes;
 using HS.DB.Result;
 using HS.Utils;
 using HS.Utils.Convert;
@@ -335,30 +336,31 @@ namespace HS.DB.Extension
         }
         #endregion
 
+
+        private static DBCommand SQLRawCommand<T>(DBManager Manager, T Instance, string Prefix) where T : class
+        {
+
+            Type type = Instance.GetType();
+            var columns = GetColumns(type, Instance, out var _);
+            StringBuilder sb = new StringBuilder(Prefix);
+
+            //테이블
+            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
+                sb.Append(attr.ToString(Manager, type.Name));
+
+            //조건
+            var where = BuildWhere(columns, Manager);
+            if (!where.IsEmpty()) sb.Append(where.Where);
+
+            var p = Manager.StatementPrefix;
+
+            var prepare = Manager.Prepare(sb.ToString());
+            foreach (var col in columns) prepare.Add($"{p}{col.Key}", ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)));
+            return prepare;
+        }
         #region SQLCount
         public static Task<long> SQLCountAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false) => DBExecuter.CountAsync(Manager, Table, Where, Close);
         public static Task<long> SQLCountAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => DBExecuter.CountAsync(Manager, Table, Where, false);
-        [Obsolete("Have a SQL Injection attack risk")]
-        public static async Task<long> SQLCountAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
-        {
-            try
-            {
-                Type type = Instance.GetType();
-                var columns = GetColumns(type, Instance, out var _);
-                StringBuilder sb = new StringBuilder("SELECT COUNT(*)");
-
-                //테이블
-                foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                    sb.Append(attr.ToString(Manager, type.Name));
-
-                //조건
-                var where = BuildWhere(columns, Manager);
-                if (!where.IsEmpty()) sb.Append(where.Where);
-
-                return long.Parse((await Manager.ExcuteOnceAsync(sb.ToString())).ToString());
-            }
-            finally { if (Close) Manager.Dispose(); }
-        }
         public static Task<long> SQLCountAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
             Type type = typeof(T);
@@ -369,9 +371,18 @@ namespace HS.DB.Extension
 
             return DBExecuter.CountAsync(Manager, Table, Where, Close);
         }
+        public static async Task<long> SQLCountAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            try
+            {
+                using (var prepare = SQLRawCommand(Manager, Instance, "SELECT COUNT(*)"))
+                    return Convert.ToInt64(await prepare.ExcuteOnceAsync());
+            }
+            finally { if (Close) Manager.Dispose(); }
+        }
         #endregion
 
-        #region SQLDelete
+        #region SQL Delete
         public static Task<bool> SQLDeleteAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false) => DBExecuter.DeleteAsync(Manager, Table, Where, Close);
         public static Task<bool> SQLDeleteAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => DBExecuter.DeleteAsync(Manager, Table, Where, false);
         public static Task<bool> SQLDeleteAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false)
@@ -384,9 +395,18 @@ namespace HS.DB.Extension
 
             return DBExecuter.DeleteAsync(Manager, Table, Where, Close);
         }
+        public static async Task<int> SQLDeleteAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            try
+            {
+                using (var prepare = SQLRawCommand(Manager, Instance, "DELETE"))
+                    return await prepare.ExcuteNonQueryAsync();
+            }
+            finally { if (Close) Manager.Dispose(); }
+        }
         #endregion
 
-        #region SQLMax
+        #region SQL Max
         public static async Task<object> SQLMaxAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) => await DBExecuter.MaxAsync(Manager, Table, Column, Where, Close);
         public static async Task<object> SQLMaxAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
@@ -470,13 +490,33 @@ namespace HS.DB.Extension
 
         #endregion
 
-        #region SQLExist
-        /*
-        public static async Task<bool> SQLExist<T>(this DBManager Manager, T Instance) where T : class
+        #region ETC
+        /// <summary>
+        /// Get ColumnWhere list from instance
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Instance"></param>
+        /// <returns></returns>
+        public static List<ColumnWhere> GetWhere<T>(T Instance) where T : class
         {
+            Type type = Instance.GetType();
+            var Columns = GetColumns(type, Instance, out var _);
 
+            List<ColumnWhere> wheres = new List<ColumnWhere>(10);
+            foreach (var col in Columns)
+            {
+                if (col.Value.Where != null)
+                {
+                    var value = col.Value.GetValue(Instance);
+                    var condition = col.Value.Where.Condition.ToString();
+
+                    if (col.Value.Where.Kind == WhereKind.Equal) wheres.Add(ColumnWhere.Is(col.Key, value, condition));
+                    else if (col.Value.Where.Kind == WhereKind.NotEqual) wheres.Add(ColumnWhere.IsNot(col.Key, value, condition));
+                    else if (col.Value.Where.Kind == WhereKind.LIKE) wheres.Add(ColumnWhere.Like(col.Key, value, condition));
+                }
+            }
+            return wheres;
         }
-        */
         #endregion
 
         //컬럼 빌드
