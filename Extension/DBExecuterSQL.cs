@@ -339,7 +339,6 @@ namespace HS.DB.Extension
 
         private static DBCommand SQLRawCommand<T>(DBManager Manager, T Instance, string Prefix) where T : class
         {
-
             Type type = Instance.GetType();
             var columns = GetColumns(type, Instance, out var _);
             StringBuilder sb = new StringBuilder(Prefix);
@@ -375,7 +374,7 @@ namespace HS.DB.Extension
         {
             try
             {
-                using (var prepare = SQLRawCommand(Manager, Instance, "SELECT COUNT(*)"))
+                using (var prepare = SQLRawCommand(Manager, Instance, "SELECT COUNT(*) FROM"))
                     return Convert.ToInt64(await prepare.ExcuteOnceAsync());
             }
             finally { if (Close) Manager.Dispose(); }
@@ -399,7 +398,7 @@ namespace HS.DB.Extension
         {
             try
             {
-                using (var prepare = SQLRawCommand(Manager, Instance, "DELETE"))
+                using (var prepare = SQLRawCommand(Manager, Instance, "DELETE "))
                     return await prepare.ExcuteNonQueryAsync();
             }
             finally { if (Close) Manager.Dispose(); }
