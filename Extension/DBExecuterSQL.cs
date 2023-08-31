@@ -7,10 +7,8 @@ using HS.Utils.Text;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Threading.Tasks;
-using System.Xml.Serialization;
 
 namespace HS.DB.Extension
 {
@@ -467,7 +465,7 @@ namespace HS.DB.Extension
 
             var func = new Action<dynamic, Type>((Info, Type) =>
             {
-                foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnType, false))
+                foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnAttribute.ClassType, false))
                 {
                     string ColumnName = string.IsNullOrEmpty(column.Name) ? Info.Name : column.Name;
                     if (Result.ColumnExist(ColumnName))
@@ -519,7 +517,6 @@ namespace HS.DB.Extension
         #endregion
 
         //컬럼 빌드
-        private static readonly Type SQLColumnType = typeof(SQLColumnAttribute);
         private static readonly Type SQLWhereType = typeof(SQLWhereAttribute);
         private static readonly Type SQLSortType = typeof(SQLSortAttribute);
         private static Dictionary<string, ColumnData> GetColumns(Type type, object Instance, out List<SQLSortAttribute> Sort)
@@ -537,7 +534,7 @@ namespace HS.DB.Extension
                 SQLSortAttribute issort = null;
 
                 bool Include = false;
-                foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnType, false))
+                foreach (SQLColumnAttribute column in Info.GetCustomAttributes(SQLColumnAttribute.ClassType, false))
                 {
                     col = column;
                     //Key 면 자동으로 Where 생성

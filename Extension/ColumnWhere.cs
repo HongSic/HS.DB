@@ -23,6 +23,14 @@ namespace HS.DB.Extension
 
         private static readonly Dictionary<string, object> EmptyRawParam = new Dictionary<string, object>(0);
 
+        public static ColumnWhere Empty(string Join = DefaultOperator) => new ColumnWhere(Join);
+        public static ColumnWhere Bracket(IEnumerable<ColumnWhere> Wheres, string Join = DefaultOperator)
+        {
+            var empty = Empty(Join);
+            empty.Sub.AddRange(Wheres);
+            return empty;
+        }
+
         #region Raw
         public static ColumnWhere Raw(string WhereQuery, Dictionary<string, object> RawParams, string Join = DefaultOperator) => new ColumnWhere(WhereQuery, RawParams, Join);
         public static ColumnWhere Raw(string WhereQuery, string Column, object Value, string Join = DefaultOperator) => Raw(WhereQuery, new Dictionary<string, object>(1) { { Column, Value } }, Join);
@@ -40,6 +48,7 @@ namespace HS.DB.Extension
         public static ColumnWhere IsSmallerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " <= ", Join);
 
 
+        public readonly bool IsEmpty = false;
         public string WhereQuery { get; set; }
         public bool IsRaw => RawParams != null;
 
@@ -59,6 +68,12 @@ namespace HS.DB.Extension
         /// </summary>
         internal string BindKey { get; set; }
 
+        private ColumnWhere(string Join) 
+        { 
+            IsEmpty = true;
+            this.Join = Join;
+            Sub.Operator = null;
+        }
         /// <summary>
         /// 
         /// </summary>
@@ -78,6 +93,12 @@ namespace HS.DB.Extension
 
             this.BindKey = $"{Column}_{StringUtils.NextString(random, 10)}";
         }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="WhereQuery"></param>
+        /// <param name="RawParams"></param>
+        /// <param name="Join"></param>
         private ColumnWhere(string WhereQuery, Dictionary<string, object> RawParams, string Join = DefaultOperator)
         {
             this.WhereQuery = WhereQuery;
@@ -103,6 +124,7 @@ namespace HS.DB.Extension
         {
             string str;
             if (IsRaw) str = WhereQuery;
+            else if (IsEmpty) str = null;
             else
             {
                 char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
@@ -189,6 +211,7 @@ namespace HS.DB.Extension
             private void _QueryString(ColumnWhere data, StringBuilder sb, bool First)
             {
                 // 노드가 null이면 아무것도 하지 않습니다.
+                
                 if (data == null) return;
 
                 // 노드의 값을 추가합니다.

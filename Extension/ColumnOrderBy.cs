@@ -10,6 +10,7 @@
         public string Column { get; set; }
         public ColumnSort Sort { get; set; }
 
+        public override string ToString() => $"{Column} {(Sort == ColumnSort.DESC ? "DESC" : "ASC")} ";
         public string ToString(DBManager Manager) => $"{Manager.GetQuote(Column)} {(Sort == ColumnSort.DESC ? "DESC" : "ASC")} ";
     }
 }

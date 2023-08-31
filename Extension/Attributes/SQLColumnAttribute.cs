@@ -1,12 +1,14 @@
 ﻿using HS.Utils.Convert;
 using System;
 using System.Diagnostics;
+using System.Reflection;
 
 //https://www.csharpstudy.com/Data/EF-annotation.aspx
 namespace HS.DB.Extension.Attributes
 {
     public class SQLColumnAttribute : Attribute
     {
+        public static readonly Type ClassType = typeof(SQLColumnAttribute);
         /// <summary>
         /// 컬럼 이름
         /// </summary>
@@ -132,6 +134,41 @@ namespace HS.DB.Extension.Attributes
 #endif
                 return ColumnType.ETC;
             }
+        }
+
+
+
+        //private delegate string StringCallback<T>(T variable);
+        /// <summary>
+        /// 해당 클래스의 프로퍼티 및 필드 변수로부터 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Name"></param>
+        /// <param name="Sort"></param>
+        /// <returns></returns>
+        public static string GetColumnFromName<T>(string Name, out SQLColumnAttribute Column)
+        {
+            Column = null;
+            if (string.IsNullOrWhiteSpace(Name)) { return null; }
+            Type type = typeof(T);
+
+            string ColName = _GetColumnFromName(type.GetProperty(Name), out Column);
+            if (ColName == null) return _GetColumnFromName(type.GetField(Name), out Column);
+            return ColName;
+        }
+        private static string _GetColumnFromName(dynamic Info, out SQLColumnAttribute Column)
+        {
+            Column = null;
+            if (Info != null)
+            {
+                foreach (SQLColumnAttribute column in Info.GetCustomAttributes(ClassType, false))
+                {
+                    Column = column;
+                    return Column.Name ?? Info.Name;
+                }
+            }
+
+            return null;
         }
     }
 }
