@@ -37,6 +37,8 @@ namespace HS.DB.Extension
         private static ListData FromInstance<T>(T Instance, bool WhereInclude, out string Table, DBManager Manager = null) where T : class
         {
             var type = Instance.GetType();
+            Table = DBExecuterSQL.GetTable(Manager, type);
+
             var properties = type.GetProperties(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
 
@@ -79,8 +81,6 @@ namespace HS.DB.Extension
             for (int i = 0; i < fields.Length; i++)
                 func(fields[i], fields[i].FieldType);
 
-            Table = type.Name;
-            foreach (SQLTableAttribute table in type.GetCustomAttributes(SQLTableType, false)) Table = table.ToString(Manager);
             return new ListData(Columns, Where, Sort);
         }
 

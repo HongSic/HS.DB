@@ -14,6 +14,16 @@ namespace HS.DB.Extension
 {
     public static class DBExecuterSQL
     {
+        public static string GetTable<T>(this DBManager Manager) => GetTable(Manager, typeof(T));
+        internal static string GetTable(DBManager Manager, Type type)
+        {
+            //테이블
+            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
+                return attr.ToString(Manager, type.Name);
+
+            throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -32,12 +42,8 @@ namespace HS.DB.Extension
             StringBuilder sb = new StringBuilder("INSERT INTO ");
 
             //테이블
-            string Table = null;
-            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                Table = attr.ToString(Manager, type.Name);
-
-            if (string.IsNullOrWhiteSpace(Table)) throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
-            else sb.Append(Table);
+            string Table = GetTable(Manager, type);
+            sb.Append(Table);
 
             //컬럼
             foreach (var col in columns)
@@ -96,12 +102,8 @@ namespace HS.DB.Extension
             StringBuilder sb = new StringBuilder("UPDATE ");
 
             //테이블
-            string Table = null;
-            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                Table = attr.ToString(Manager, type.Name);
-
-            if (string.IsNullOrWhiteSpace(Table)) throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
-            else sb.Append(Table);
+            string Table = GetTable(Manager, type);
+            sb.Append(Table);
 
             sb.Append(" SET ");
 
@@ -165,14 +167,11 @@ namespace HS.DB.Extension
                 }
             }
 
-            //테이블
             sb.Append(" FROM ");
-            string Table = null;
-            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                Table = attr.ToString(Manager, type.Name);
 
-            if (string.IsNullOrWhiteSpace(Table)) throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
-            else sb.Append(Table);
+            //테이블
+            string Table = GetTable(Manager, type);
+            sb.Append(Table);
 
             //조건
             var where = BuildWhere(columns, Manager);
@@ -334,25 +333,83 @@ namespace HS.DB.Extension
         }
         #endregion
 
+        #region Get Value
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <param name="Column"></param>
+        /// <param name="Where"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static async Task<object> SQLGetValueOnceAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            try
+            {
+                var where = ColumnWhere.JoinForStatement(Where, Manager);
+                string where_query = where?.QueryString();
+                StringBuilder sb = new StringBuilder($"SELECT {Column} FROM ").Append(Table);
+
+                //추가 조건절
+                if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+
+                using (var Stmt = Manager.Prepare(sb.ToString()))
+                {
+                    //추가 조건절이 존재하면 할당
+                    if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+
+                    //값이 DBNull 이면 null 반환
+                    var value = await Stmt.ExcuteOnceAsync();
+                    return value == DBNull.Value ? null : value;
+                }
+            }
+            finally { if (Close) Manager.Dispose(); }
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T">SQL model instance (Defined SQLTableAttribute)</typeparam>
+        /// <param name="Manager"></param>
+        /// <param name="Column"></param>
+        /// <param name="Where"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static Task<object> SQLGetValueOnceAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class
+        {
+            Type type = typeof(T);
+            //테이블
+            string Table = GetTable(Manager, type);
+            return SQLGetValueOnceAsync(Manager, Table, Column, Where, Close);
+        }
+
+
+
+        #endregion
+
 
         private static DBCommand SQLRawCommand<T>(DBManager Manager, T Instance, string Prefix) where T : class
         {
+            char p = Manager.StatementPrefix;
             Type type = Instance.GetType();
             var columns = GetColumns(type, Instance, out var _);
             StringBuilder sb = new StringBuilder(Prefix);
 
             //테이블
-            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                sb.Append(attr.ToString(Manager, type.Name));
+            sb.Append(GetTable(Manager, type));
 
             //조건
             var where = BuildWhere(columns, Manager);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
-            var p = Manager.StatementPrefix;
 
             var prepare = Manager.Prepare(sb.ToString());
-            foreach (var col in columns) prepare.Add($"{p}{col.Key}", ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)));
+            for (int i = 0; i < where.Columns.Count; i++)
+            {
+                var column = columns[where.Columns[i]];
+                prepare.Add($"{p}{where.Columns[i]}", ConvertValue(column.Column.Type, column.GetValue(Instance)));
+            }
+
             return prepare;
         }
         #region SQLCount
@@ -360,12 +417,7 @@ namespace HS.DB.Extension
         public static Task<long> SQLCountAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => DBExecuter.CountAsync(Manager, Table, Where, false);
         public static Task<long> SQLCountAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            Type type = typeof(T);
-
-            string Table = null;
-            foreach (SQLTableAttribute attr in type.GetCustomAttributes(typeof(SQLTableAttribute), false))
-                Table = attr.ToString(Manager, type.Name);
-
+            string Table = GetTable(Manager, typeof(T));
             return DBExecuter.CountAsync(Manager, Table, Where, Close);
         }
         public static async Task<long> SQLCountAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
