@@ -142,10 +142,13 @@ namespace HS.DB.Extension
                 bool First = true;
                 foreach (var sort in Sort)
                 {
-                    if (First) sb.Append(" ORDER BY ");
-                    else sb.Append(", ");
-                    sb.Append(sort.ToString(Conn));
-                    First = false;
+                    if(sort != null)
+                    {
+                        if (First) sb.Append(" ORDER BY ");
+                        else sb.Append(", ");
+                        sb.Append(sort.ToString(Conn));
+                        First = false;
+                    }
                 }
             }
 
