@@ -4,6 +4,8 @@ using HS.DB.Result;
 using HS.Utils;
 using HS.Utils.Convert;
 using HS.Utils.Text;
+using MySqlX.XDevAPI.Relational;
+using Org.BouncyCastle.Asn1.Ocsp;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -333,7 +335,7 @@ namespace HS.DB.Extension
         }
         #endregion
 
-        #region Get Value
+        #region SQL Get / Set Value
         /// <summary>
         /// 
         /// </summary>
@@ -366,29 +368,58 @@ namespace HS.DB.Extension
             }
             finally { if (Close) Manager.Dispose(); }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T">SQL model instance (Defined SQLTableAttribute)</typeparam>
-        /// <param name="Manager"></param>
-        /// <param name="Column"></param>
-        /// <param name="Where"></param>
-        /// <param name="Close"></param>
-        /// <returns></returns>
         public static Task<object> SQLGetValueOnceAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class
         {
-            Type type = typeof(T);
             //테이블
-            string Table = GetTable(Manager, type);
+            string Table = GetTable(Manager, typeof(T));
             return SQLGetValueOnceAsync(Manager, Table, Column, Where, Close);
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <param name="Column"></param>
+        /// <param name="Value"></param>
+        /// <param name="Where"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static async Task<bool> SQLSetValueOnceAsync(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            try
+            {
+                char p = Manager.StatementPrefix;
+                var where = ColumnWhere.JoinForStatement(Where, Manager);
+                string where_query = where?.QueryString();
+                StringBuilder sb = new StringBuilder($"UPDATE ${Table} SET ${Column}={p}{Column}");
 
+                //추가 조건절
+                if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+
+                using (var Stmt = Manager.Prepare(sb.ToString()))
+                {
+                    Stmt.Add($"{p}{Column}", Value ?? DBNull.Value);
+
+                    //추가 조건절이 존재하면 할당
+                    if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+
+                    //1보다 크면 변경됨
+                    return await Stmt.ExcuteNonQueryAsync() > 0;
+                }
+            }
+            finally { if (Close) Manager.Dispose(); }
+        }
+        public static Task<bool> SQLSetValueOnceAsync<T>(this DBManager Manager, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class
+        {
+            //테이블
+            string Table = GetTable(Manager, typeof(T));
+            return SQLSetValueOnceAsync(Manager, Table, Column, Value, Where, Close);
+        }
 
         #endregion
 
-
-        private static DBCommand SQLRawCommand<T>(DBManager Manager, T Instance, string Prefix) where T : class
+        private static DBCommand SQLRawCommand<T>(DBManager Manager, T Instance, string Prefix, string Table = null) where T : class
         {
             char p = Manager.StatementPrefix;
             Type type = Instance.GetType();
@@ -396,7 +427,7 @@ namespace HS.DB.Extension
             StringBuilder sb = new StringBuilder(Prefix);
 
             //테이블
-            sb.Append(GetTable(Manager, type));
+            sb.Append(Table ?? GetTable(Manager, type));
 
             //조건
             var where = BuildWhere(columns, Manager);
@@ -537,6 +568,9 @@ namespace HS.DB.Extension
             return Instance;
         }
 
+        #endregion
+
+        #region SQL ETC
         #endregion
 
         #region ETC
