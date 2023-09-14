@@ -392,7 +392,7 @@ namespace HS.DB.Extension
                 char p = Manager.StatementPrefix;
                 var where = ColumnWhere.JoinForStatement(Where, Manager);
                 string where_query = where?.QueryString();
-                StringBuilder sb = new StringBuilder($"UPDATE ${Table} SET ${Column}={p}{Column}");
+                StringBuilder sb = new StringBuilder($"UPDATE {Table} SET {Column}={p}{Column}");
 
                 //추가 조건절
                 if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
