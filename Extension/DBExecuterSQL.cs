@@ -135,7 +135,7 @@ namespace HS.DB.Extension
             using (var prepare = Manager.Prepare(sb.ToString()))
             {
                 //foreach (var item in VALUES) prepare.Add($"@{item.Key}", item.Value);
-                foreach(var col in columns) prepare.Add($"{p}{col.Key}", ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)));
+                foreach (var col in columns) prepare.Add($"{p}{col.Key}", ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)) ?? DBNull.Value);
                 return await prepare.ExcuteNonQueryAsync() > 0;
             }
         }
