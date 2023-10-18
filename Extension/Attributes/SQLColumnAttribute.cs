@@ -34,6 +34,10 @@ namespace HS.DB.Extension.Attributes
         /// 최대 자릿수 (0 이면 미사용)
         /// </summary>
         public int MaxLength { get; set; }
+        /// <summary>
+        /// 검색가능 여부
+        /// </summary>
+        public bool Searchable { get; set; }
 
         public override string ToString() => Name;
 
@@ -75,6 +79,16 @@ namespace HS.DB.Extension.Attributes
             this.UseIgnoreValue = UseIgnoreValue;
             this.IgnoreValue = IgnoreValue;
             this.MaxLength = MaxLength;
+        }
+        public SQLColumnAttribute(string Name, bool Key, ColumnType Type, bool Searchable, int MaxLength = 0, bool UseIgnoreValue = false, object IgnoreValue = null)
+        {
+            this.Type = Type;
+            this.Name = Name;
+            this.Key = Key;
+            this.UseIgnoreValue = UseIgnoreValue;
+            this.IgnoreValue = IgnoreValue;
+            this.MaxLength = MaxLength;
+            this.Searchable = Searchable;
         }
 
         public SQLColumnAttribute(bool Key, int MaxLength = 0, bool UseIgnoreValue = false, object IgnoreValue = null)
