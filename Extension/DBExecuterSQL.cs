@@ -34,7 +34,7 @@ namespace HS.DB.Extension
         /// <param name="Instance"></param>
         /// <returns></returns>
         /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static async Task<bool> SQLInsertAsync<T>(this DBManager Manager, T Instance) where T : class
+        public static async Task<bool> SQLInsertAsync<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
         {
             var p = Manager.StatementPrefix;
             Type type = Instance.GetType();
@@ -80,8 +80,17 @@ namespace HS.DB.Extension
             sb.Append(")");
             for (int i = 0; i < keys_remove.Count; i++) columns.Remove(keys_remove[i]);
 
+
+            ColumnWhere.Statement WhereStatement = null;
+            if(WhereStatement != null)
+            {
+                WhereStatement = ColumnWhere.JoinForStatement(Where, Manager);
+                sb.Append(" WHERE ").Append(WhereStatement?.QueryString());
+            }
+
             using (var prepare = Manager.Prepare(sb.ToString()))
             {
+                WhereStatement?.Apply(prepare);
                 foreach (var item in VALUES) prepare.Add($"{p}{item.Key}", item.Value);
                 return await prepare.ExcuteNonQueryAsync() > 0;
             }
@@ -94,7 +103,7 @@ namespace HS.DB.Extension
         /// <param name="Instance"></param>
         /// <returns></returns>
         /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static async Task<bool> SQLUpdateAsync<T>(this DBManager Manager, T Instance) where T : class
+        public static async Task<bool> SQLUpdateAsync<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
         {
             var p = Manager.StatementPrefix;
             Type type = Instance.GetType();
@@ -129,11 +138,21 @@ namespace HS.DB.Extension
             for(int i = 0; i < keys_remove.Count; i++) columns.Remove(keys_remove[i]);
 
             //조건 (Primary Key)
-            var where = BuildWhere(columns, Manager);
-            if (!where.IsEmpty()) sb.Append(where.Where);
+            ColumnWhere.Statement WhereStatement = null;
+            if (Where == null)
+            {
+                var where = BuildWhere(columns, Manager);
+                if (!where.IsEmpty()) sb.Append(where.Where);
+            }
+            else
+            {
+                WhereStatement = ColumnWhere.JoinForStatement(Where, Manager);
+                sb.Append(" WHERE ").Append(WhereStatement?.QueryString());
+            }
 
             using (var prepare = Manager.Prepare(sb.ToString()))
             {
+                WhereStatement?.Apply(prepare);
                 //foreach (var item in VALUES) prepare.Add($"@{item.Key}", item.Value);
                 foreach (var col in columns) prepare.Add($"{p}{col.Key}", ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)) ?? DBNull.Value);
                 return await prepare.ExcuteNonQueryAsync() > 0;
