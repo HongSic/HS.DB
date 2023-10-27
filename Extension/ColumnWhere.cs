@@ -268,6 +268,8 @@ namespace HS.DB.Extension
         {
             internal SubWhere() : base(5) { }
             public string Operator { get; set; } = "AND";
+
+            public string ToString(DBManager DB) => new Statement(this, DB).ToString();
         }
     }
 }
