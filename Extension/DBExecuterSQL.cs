@@ -4,8 +4,6 @@ using HS.DB.Result;
 using HS.Utils;
 using HS.Utils.Convert;
 using HS.Utils.Text;
-using MySqlX.XDevAPI.Relational;
-using Org.BouncyCastle.Asn1.Ocsp;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -236,33 +234,23 @@ namespace HS.DB.Extension
                 }
             }
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="Manager"></param>
-        /// <param name="Where"></param>
-        /// <returns></returns>
-        /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class
+
+        #region SQLQueryOnceAsync
+        public static Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class => SQLQueryOnceAsync<T>(Manager, null, Where);
+        public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, string Table, params ColumnWhere[] Where) where T : class
         {
-            List<T> list = await SQLQueryAsync<T>(Manager, Where, null, 0, -1);
+            List<T> list = await SQLQueryAsync<T>(Manager, Table, Where, null, 0, -1);
             return list.Count == 0 ? null : list[0];
         }
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="Manager"></param>
-        /// <param name="Where"></param>
-        /// <param name="Offset"></param>
-        /// <returns></returns>
-        /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class
+        public static Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, int Offset = 0, IEnumerable<string> GroupBy = null) where T : class => SQLQueryOnceAsync<T>(Manager, Where, Offset, GroupBy);
+        public static async Task<T> SQLQueryOnceAsync<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, int Offset = 0, IEnumerable<string> GroupBy = null) where T : class
         {
-            List<T> list = await SQLQueryAsync<T>(Manager, Where, null, Offset, 1);
+            List<T> list = await SQLQueryAsync<T>(Manager, Table, Where, null, Offset, 1);
             return list.Count == 0 ? null : list[0];
         }
+        #endregion
+
+        #region SQLQueryAsync
         /// <summary>
         /// 
         /// </summary>
@@ -273,7 +261,11 @@ namespace HS.DB.Extension
         /// <param name="Count"></param>
         /// <param name="Offset"></param>
         /// <returns></returns>
-        public static async Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
+        public static Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupAsync<T>(Manager, null, null, Where, Sort, Offset, Count);
+        public static Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupAsync<T>(Manager, Table, null, Where, Sort, Offset, Count);
+        public static Task<List<T>> SQLQueryGroupAsync<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupAsync<T>(Manager, null, GroupBy, Where, Sort, Offset, Count);
+        public static async Task<List<T>> SQLQueryGroupAsync<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class
         {
             Type type = typeof(T);
             /*
@@ -331,8 +323,10 @@ namespace HS.DB.Extension
                 }
             }
             */
-            var data = ListData.FromInstance<T>(out string Table, Manager);
-            using (DBResult result = await DBExecuter.ListBuild(Manager, Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort).ExcuteAsync())
+            var data = ListData.FromInstance<T>(out string _Table, Manager);
+            var prepare = DBExecuter.ListBuild(Manager, Table == null ? _Table : Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort, GroupBy);
+            var result = await prepare.ExcuteAsync();
+            using (result)
             {
                 List<T> list = new List<T>();
                 while (result.MoveNext())
@@ -352,6 +346,7 @@ namespace HS.DB.Extension
                 return list;
             }
         }
+        #endregion
         #endregion
 
         #region SQL Get / Set Value

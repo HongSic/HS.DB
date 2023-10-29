@@ -110,7 +110,7 @@ namespace HS.DB.Extension
         /// <param name="Where">조건</param>
         /// <param name="Sort">정렬 </param>
         /// <returns></returns>
-        public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null)
+        public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, IEnumerable<string> GroupBy = null)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -135,6 +135,20 @@ namespace HS.DB.Extension
 
             //추가 조건절
             if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+
+            // GroupBy
+            if (GroupBy != null)
+            {
+                bool GroupFirst = true;
+                foreach(var group in GroupBy)
+                {
+                    if(!string.IsNullOrWhiteSpace(group))
+                    {
+                        if (GroupFirst) { sb.Append($" GROUP BY {group}"); GroupFirst = false; }
+                        else sb.Append($", {group}");
+                    }
+                }
+            }
 
             //정렬 연산자
             if (Sort != null)
