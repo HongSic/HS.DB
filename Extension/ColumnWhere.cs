@@ -1,10 +1,7 @@
-﻿using Amazon.RDS.Model;
-using HS.DB.Command;
-using HS.DB.Utils;
+﻿using HS.DB.Command;
 using HS.Utils;
 using HS.Utils.Text;
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Text;
 
@@ -15,11 +12,22 @@ namespace HS.DB.Extension
         public static string GetQueryWhereString(this IEnumerable<ColumnWhere> Queries, DBManager Conn) => ColumnWhere.JoinForStatement(Queries, Conn);
     }
 
-
+    public class RawColumn
+    {
+        public RawColumn(string Column, bool IsBindKey = false) { this.Column = Column; this.IsBindKey = IsBindKey; }
+        public string Column { get; set; }
+        public bool IsBindKey { get; set; }
+    }
     public sealed class ColumnWhere
     {
-        private static readonly Random random = new Random();
         private const string DefaultOperator = "AND";
+        private static readonly Random random = new Random();
+        /// <summary>
+        /// Generate Random Column Key
+        /// </summary>
+        /// <param name="Column"></param>
+        /// <returns></returns>
+        public static string GenColumnKey(string Column) => $"{Column}_{StringUtils.NextString(random, 10)}";
 
         private static readonly Dictionary<string, object> EmptyRawParam = new Dictionary<string, object>(0);
 
@@ -46,6 +54,26 @@ namespace HS.DB.Extension
         public static ColumnWhere IsBiggerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " >= ", Join);
         public static ColumnWhere IsSmaller(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " < ", Join);
         public static ColumnWhere IsSmallerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " <= ", Join);
+        public static ColumnWhere Between(string Column, object Value1, object Value2, char StatementPrefix, string Join = DefaultOperator)
+        {
+            string Key1 = $"{StatementPrefix}{GenColumnKey(Column)}", Key2 = $"{StatementPrefix}{GenColumnKey(Column)}";
+            string Query = $"{Column} BETWEEN {Key1} AND {Key2}";
+            return Raw(Query, new Dictionary<string, object>(2) { { Key1, Value1 }, { Key2, Value2 } }, Join);
+        }
+        public static ColumnWhere BetweenValue(object Value, string Column1, object Column2, char StatementPrefix, string Join = DefaultOperator)
+        {
+            string Column = "RDM_KEY_GEN";
+            string Key = $"{StatementPrefix}{GenColumnKey(Column)}";
+            string Query = $"{Key} BETWEEN {Column1} AND {Column2}";
+            return Raw(Query, new Dictionary<string, object>(1) { { Key, Value } }, Join);
+        }
+        public static ColumnWhere BetweenValueOnly(object ColunmValue, object Value1, object Value2, char StatementPrefix, string Join = DefaultOperator)
+        {
+            string Column = "RDM_KEY_GEN_";
+            string Key = $"{StatementPrefix}{GenColumnKey(Column)}", Key1 = $"{StatementPrefix}{GenColumnKey(Column)}", Key2 = $"{StatementPrefix}{GenColumnKey(Column)}";
+            string Query = $"{Key} BETWEEN {Key1} AND {Key2}";
+            return Raw(Query, new Dictionary<string, object>(3) { { Key, ColunmValue }, { Key1, Value1 }, { Key2, Value2 } }, Join);
+        }
 
 
         public readonly bool IsEmpty = false;
@@ -90,8 +118,7 @@ namespace HS.DB.Extension
 
             IsLike = Operator == null;
 
-
-            this.BindKey = $"{Column}_{StringUtils.NextString(random, 10)}";
+            this.BindKey = GenColumnKey(Column);
         }
         /// <summary>
         /// 
@@ -137,7 +164,7 @@ namespace HS.DB.Extension
                 $"{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
             }
 
-            if (Next) str = $"{Join} {str}";
+            if (Next) str = $" {Join} {str}";
 
             return str;
         }
