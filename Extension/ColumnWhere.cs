@@ -38,6 +38,7 @@ namespace HS.DB.Extension
             empty.Sub.AddRange(Wheres);
             return empty;
         }
+        public static ColumnWhere Bracket(string Join, params ColumnWhere[] Wheres) => Bracket(Wheres, Join);
 
         #region Raw
         public static ColumnWhere Raw(string WhereQuery, Dictionary<string, object> RawParams, string Join = DefaultOperator) => new ColumnWhere(WhereQuery, RawParams, Join);
