@@ -45,28 +45,25 @@ namespace HS.DB.Extension
         public static ColumnWhere Raw(string WhereQuery, string Column, object Value, string Join = DefaultOperator) => Raw(WhereQuery, new Dictionary<string, object>(1) { { Column, Value } }, Join);
         public static ColumnWhere Raw(string WhereQuery, string Join = DefaultOperator) => Raw(WhereQuery, EmptyRawParam, Join);
         #endregion
-        public static ColumnWhere Like(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join);
-        public static ColumnWhere Custom(string Column, object Value, string Operator, string Join = DefaultOperator) => new ColumnWhere(Column, Value, Operator, Join);
-        public static ColumnWhere Is(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "=", Join);
-        public static ColumnWhere IsNot(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "<>", Join);
-        public static ColumnWhere IsNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS ", Join);
-        public static ColumnWhere IsNotNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS NOT ", Join);
-        public static ColumnWhere IsBigger(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " > ", Join);
-        public static ColumnWhere IsBiggerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " >= ", Join);
-        public static ColumnWhere IsSmaller(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " < ", Join);
-        public static ColumnWhere IsSmallerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " <= ", Join);
-        public static ColumnWhere Between(string Column, object Value1, object Value2, char StatementPrefix, string Join = DefaultOperator)
-        {
-            string Key1 = $"{StatementPrefix}{GenColumnKey(Column)}", Key2 = $"{StatementPrefix}{GenColumnKey(Column)}";
-            string Query = $"{Column} BETWEEN {Key1} AND {Key2}";
-            return Raw(Query, new Dictionary<string, object>(2) { { Key1, Value1 }, { Key2, Value2 } }, Join);
-        }
-        public static ColumnWhere BetweenValue(object Value, string Column1, object Column2, char StatementPrefix, string Join = DefaultOperator)
+
+        #region Between
+        public static ColumnWhere BetweenColumn(object Value, string Column1, string Column2, char StatementPrefix, string Join = DefaultOperator)
         {
             string Column = "RDM_KEY_GEN";
             string Key = $"{StatementPrefix}{GenColumnKey(Column)}";
             string Query = $"{Key} BETWEEN {Column1} AND {Column2}";
             return Raw(Query, new Dictionary<string, object>(1) { { Key, Value } }, Join);
+        }
+        public static ColumnWhere BetweenColumnOnly(string BaseColumn, string Column1, string Column2, string Join = DefaultOperator)
+        {
+            string Query = $"{BaseColumn} BETWEEN {Column1} AND {Column2}";
+            return Raw(Query, null, Join);
+        }
+        public static ColumnWhere BetweenValue(string Column, object Value1, object Value2, char StatementPrefix, string Join = DefaultOperator)
+        {
+            string Key1 = $"{StatementPrefix}{GenColumnKey(Column)}", Key2 = $"{StatementPrefix}{GenColumnKey(Column)}";
+            string Query = $"{Column} BETWEEN {Key1} AND {Key2}";
+            return Raw(Query, new Dictionary<string, object>(2) { { Key1, Value1 }, { Key2, Value2 } }, Join);
         }
         public static ColumnWhere BetweenValueOnly(object ColunmValue, object Value1, object Value2, char StatementPrefix, string Join = DefaultOperator)
         {
@@ -75,6 +72,18 @@ namespace HS.DB.Extension
             string Query = $"{Key} BETWEEN {Key1} AND {Key2}";
             return Raw(Query, new Dictionary<string, object>(3) { { Key, ColunmValue }, { Key1, Value1 }, { Key2, Value2 } }, Join);
         }
+        #endregion
+
+        public static ColumnWhere Custom(string Column, object Value, string Operator, string Join = DefaultOperator) => new ColumnWhere(Column, Value, Operator, Join);
+        public static ColumnWhere Like(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, null, Join);
+        public static ColumnWhere Is(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "=", Join);
+        public static ColumnWhere IsNot(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, "<>", Join);
+        public static ColumnWhere IsNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS ", Join);
+        public static ColumnWhere IsNotNull(string Column, string Join = DefaultOperator) => new ColumnWhere(Column, null, " IS NOT ", Join);
+        public static ColumnWhere IsBigger(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " > ", Join);
+        public static ColumnWhere IsBiggerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " >= ", Join);
+        public static ColumnWhere IsSmaller(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " < ", Join);
+        public static ColumnWhere IsSmallerEqual(string Column, object Value, string Join = DefaultOperator) => new ColumnWhere(Column, Value, " <= ", Join);
 
 
         public readonly bool IsEmpty = false;
