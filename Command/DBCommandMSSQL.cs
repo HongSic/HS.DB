@@ -18,7 +18,9 @@ namespace HS.DB.Command
         public DBManagerMSSQL Manager { get; private set; }
         public SqlCommand Command { get; private set; }
 
-        public string SQLQuery { get; private set; }
+        public override string SQLQuery => Command.CommandText;
+
+        public override CommandType CommandType { get => Command.CommandType; set => Command.CommandType = value; }
 
         public DBCommandMSSQL(DBManagerMSSQL Manager, string SQLQuery)
         {

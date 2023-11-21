@@ -4,6 +4,7 @@ using HS.DB.Manager;
 using HS.DB.Param;
 using MySql.Data.MySqlClient;
 using System.Threading.Tasks;
+using System.Data;
 
 namespace HS.DB.Command
 {
@@ -12,7 +13,9 @@ namespace HS.DB.Command
         public DBManagerMySQL Manager { get; private set; }
         public MySqlCommand Command { get; private set; }
 
-        public string SQLQuery { get; private set; }
+        public override string SQLQuery => Command.CommandText;
+
+        public override CommandType CommandType { get => Command.CommandType; set => Command.CommandType = value; }
 
         public DBCommandMySQL(DBManagerMySQL Manager, string SQLQuery)
         {

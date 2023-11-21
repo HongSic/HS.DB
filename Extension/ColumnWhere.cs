@@ -1,8 +1,11 @@
 ﻿using HS.DB.Command;
 using HS.Utils;
 using HS.Utils.Text;
+using MySqlX.XDevAPI.Relational;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text;
 
 namespace HS.DB.Extension
@@ -71,6 +74,32 @@ namespace HS.DB.Extension
             string Key = $"{StatementPrefix}{GenColumnKey(Column)}", Key1 = $"{StatementPrefix}{GenColumnKey(Column)}", Key2 = $"{StatementPrefix}{GenColumnKey(Column)}";
             string Query = $"{Key} BETWEEN {Key1} AND {Key2}";
             return Raw(Query, new Dictionary<string, object>(3) { { Key, ColunmValue }, { Key1, Value1 }, { Key2, Value2 } }, Join);
+        }
+        #endregion
+
+        #region In
+        public static ColumnWhere InNot(string Column, IEnumerable<object> Values, char StatementPrefix, string Join = DefaultOperator) => In($"{Column} NOT", Values, StatementPrefix, Join);
+        public static ColumnWhere In(string Column, IEnumerable<object> Values, char StatementPrefix, string Join = DefaultOperator)
+        {
+            if (Values != null)
+            {
+                var param = new Dictionary<string, object>(10);
+                StringBuilder sb = new StringBuilder(50);
+                bool First = true;
+
+                sb.Append($"{Column} IN (");
+                foreach (var Value in Values)
+                {
+                    string Key = $"{StatementPrefix}{GenColumnKey(Column)}";
+                    if (First) First = false;
+                    else sb.Append(',');
+                    sb.Append(Key);
+                    param.Add(Key, Value);
+                }
+                sb.Append(')');
+                return Raw(sb.ToString(), param, Join);
+            }
+            return null;
         }
         #endregion
 

@@ -3,6 +3,7 @@ using HS.DB.Manager;
 using HS.DB.Param;
 using HS.DB.Result;
 using Oracle.ManagedDataAccess.Client;
+using System.Data;
 using System.Threading.Tasks;
 
 namespace HS.DB.Command
@@ -12,7 +13,9 @@ namespace HS.DB.Command
         public DBManagerOracle Manager { get; private set; }
         public OracleCommand Command { get; private set; }
 
-        public string SQLQuery { get; private set; }
+        public override string SQLQuery => Command.CommandText;
+
+        public override CommandType CommandType { get => Command.CommandType; set => Command.CommandType = value; }
 
         public DBCommandOracle(DBManagerOracle Manager, string SQLQuery)
         {

@@ -1,11 +1,15 @@
 ﻿using HS.DB.Result;
 using System;
+using System.Data;
 using System.Threading.Tasks;
 
 namespace HS.DB.Command
 {
     public abstract class DBCommand : IDisposable
     {
+        public abstract string SQLQuery { get; }
+        public abstract CommandType CommandType { get; set; }
+
         public abstract DBCommand Add(DBParam Param);
         public abstract DBCommand Add(object Value);
         public abstract DBCommand Add(string Key, object Value);
