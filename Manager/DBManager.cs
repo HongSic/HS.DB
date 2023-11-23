@@ -9,6 +9,7 @@ using System;
 using System.Threading.Tasks;
 using HS.DB.Manager;
 using System.Data.Common;
+using System.Data;
 
 namespace HS.DB
 {
@@ -26,6 +27,7 @@ namespace HS.DB
         public abstract DBCommand Prepare(string SQLQuery);
 
         public abstract void StartTransaction();
+        public abstract void StartTransaction(IsolationLevel isolation);
         public abstract void CommitTransaction();
         public abstract void RollbackTransaction();
         public abstract DbTransaction Transaction { get; }

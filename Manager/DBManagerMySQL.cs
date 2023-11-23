@@ -5,6 +5,7 @@ using HS.DB.Param;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using System.Data.Common;
+using System.Data;
 
 namespace HS.DB.Manager
 {
@@ -26,6 +27,7 @@ namespace HS.DB.Manager
         #region Transaction
         private MySqlTransaction _Transaction;
         public override void StartTransaction() { _Transaction = conn.Connector.BeginTransaction(); }
+        public override void StartTransaction(IsolationLevel isolation) { _Transaction = conn.Connector.BeginTransaction(isolation); }
         public override void CommitTransaction() { _Transaction?.Commit(); _Transaction?.Dispose(); _Transaction = null; }
         public override void RollbackTransaction() { _Transaction?.Rollback(); _Transaction?.Dispose(); _Transaction = null; }
         public override DbTransaction Transaction => _Transaction;
