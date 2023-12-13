@@ -286,7 +286,7 @@ namespace HS.DB.Extension
                 // 노드의 자식을 추가합니다.
                 if (data.Sub.Count > 0)
                 {
-                    sb.Append($"{data.Sub.Operator} (");
+                    sb.Append($" {data.Sub.Operator} (");
                     for(int i = 0; i < data.Sub.Count; i++)
                         _QueryString(data.Sub[i], sb, i == 0);
                     sb.Append(')');
