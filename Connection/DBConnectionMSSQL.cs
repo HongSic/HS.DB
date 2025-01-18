@@ -1,4 +1,4 @@
-﻿#if MSSQL_MICROSOFT
+#if MSSQL_MICROSOFT
 using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
@@ -80,7 +80,7 @@ namespace HS.DB.Connection
             await Connector.OpenAsync();
             return manager;
         }
-        internal override void Close() { try { Connector?.Close(); } catch { } }
+        internal void Close() { try { Connector?.Close(); } catch { } }
 
         public static explicit operator SqlConnection(DBConnectionMSSQL connection) { return connection.Connector; }
 

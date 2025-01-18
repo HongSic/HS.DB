@@ -1,4 +1,4 @@
-﻿using HS.DB.Connection;
+using HS.DB.Connection;
 using HS.DB.Result;
 using HS.DB.Manager;
 using HS.DB.Param;

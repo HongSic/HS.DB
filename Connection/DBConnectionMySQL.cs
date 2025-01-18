@@ -1,4 +1,4 @@
-﻿using HS.DB.Manager;
+using HS.DB.Manager;
 using MySql.Data.MySqlClient;
 using System;
 using System.Collections.Generic;
@@ -73,7 +73,7 @@ namespace HS.DB.Connection
             await Connector.OpenAsync();
             return manager;
         }
-        internal override void Close() { try { Connector?.Close(); } catch { } }
+        internal void Close() { try { Connector?.Close(); } catch { } }
 
         public static explicit operator MySqlConnection(DBConnectionMySQL connection) { return connection.Connector; }
 

@@ -1,4 +1,4 @@
-﻿#if MSSQL_MICROSOFT
+#if MSSQL_MICROSOFT
 using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
@@ -21,8 +21,8 @@ namespace HS.DB
         /// <summary>
         /// Prepare (Statement) 를 사용시 접두어
         /// </summary>
-        public abstract char StatementPrefix { get; }
-        public abstract string GetQuote(string Column);
+        public virtual char StatementPrefix { get{ return '@'; } }
+        public virtual string GetQuote(string Keyword) => $"`{Keyword}`";
 
         public abstract DBCommand Prepare(string SQLQuery);
 
@@ -91,6 +91,6 @@ namespace HS.DB
             else return null;
         }
 
-        public virtual void Dispose() { Connector?.Close(); }
+        public abstract void Dispose();
     }
 }

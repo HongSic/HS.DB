@@ -1,4 +1,4 @@
-﻿namespace HS.DB
+namespace HS.DB
 {
     public enum DBConnectionKind
     {

@@ -1,4 +1,4 @@
-﻿using HS.DB.Command;
+using HS.DB.Command;
 using HS.Utils;
 using HS.Utils.Text;
 using MySqlX.XDevAPI.Relational;

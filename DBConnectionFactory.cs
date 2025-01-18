@@ -1,4 +1,4 @@
-﻿using HS.DB.Connection;
+using HS.DB.Connection;
 using System;
 using System.Collections.Generic;
 using System.Text;

@@ -1,4 +1,4 @@
-﻿namespace HS.DB.Extension
+namespace HS.DB.Extension
 {
     public enum WhereCondition
     {

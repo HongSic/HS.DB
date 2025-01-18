@@ -1,4 +1,4 @@
-﻿using HS.Utils.Convert;
+using HS.Utils.Convert;
 using System;
 using System.Diagnostics;
 using System.Reflection;

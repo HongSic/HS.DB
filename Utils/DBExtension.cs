@@ -1,4 +1,4 @@
-﻿using HS.DB.Command;
+using HS.DB.Command;
 using HS.DB.Param;
 
 namespace HS.DB.Utils

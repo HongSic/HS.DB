@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace HS.DB
@@ -37,7 +37,6 @@ namespace HS.DB
 
         public abstract DBManager Open();
         public abstract Task<DBManager> OpenAsync();
-        internal abstract void Close();
 
 
         /*

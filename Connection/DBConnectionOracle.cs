@@ -1,4 +1,4 @@
-﻿using HS.DB.Manager;
+using HS.DB.Manager;
 using HS.Utils.Text;
 using Oracle.ManagedDataAccess.Client;
 using System.Collections.Generic;
@@ -86,7 +86,7 @@ namespace HS.DB.Connection
             }
             return manager;
         }
-        internal override void Close() { try { Connector?.Close(); } catch { } }
+        internal void Close() { try { Connector?.Close(); } catch { } }
 
         public static explicit operator OracleConnection(DBConnectionOracle connection) { return connection.Connector; }
 

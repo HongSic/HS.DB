@@ -1,4 +1,4 @@
-﻿using HS.DB.Extension.Attributes;
+using HS.DB.Extension.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Reflection;

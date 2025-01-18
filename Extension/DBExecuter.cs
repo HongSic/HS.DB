@@ -1,10 +1,7 @@
-﻿using HS.DB.Command;
+using HS.DB.Command;
 using HS.DB.Manager;
-using HS.Utils;
-using Org.BouncyCastle.Crypto;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -124,7 +121,7 @@ namespace HS.DB.Extension
                 foreach (var col in Columns)
                 {
                     string name = Conn.GetQuote(col.ColumnName);
-                        if (First) sb.Append(name);
+                    if (First) sb.Append(name);
                     else sb.Append(',').Append(name);
                     First = false;
                 }
@@ -140,9 +137,9 @@ namespace HS.DB.Extension
             if (GroupBy != null)
             {
                 bool GroupFirst = true;
-                foreach(var group in GroupBy)
+                foreach (var group in GroupBy)
                 {
-                    if(!string.IsNullOrWhiteSpace(group))
+                    if (!string.IsNullOrWhiteSpace(group))
                     {
                         if (GroupFirst) { sb.Append($" GROUP BY {group}"); GroupFirst = false; }
                         else sb.Append($", {group}");
@@ -156,7 +153,7 @@ namespace HS.DB.Extension
                 bool First = true;
                 foreach (var sort in Sort)
                 {
-                    if(sort != null)
+                    if (sort != null)
                     {
                         if (First) sb.Append(" ORDER BY ");
                         else sb.Append(", ");
@@ -203,34 +200,20 @@ namespace HS.DB.Extension
         #endregion
 
         #region Count
-        /// <summary>
-        /// 갯수 구하기
-        /// </summary>
-        /// <param name="Conn">SQL 커넥션</param>
-        /// <param name="Table">게시판 테이블 이름</param>
-        /// <param name="Where">조건</param>
-        /// <param name="Close">커넥션 닫기 여부</param>
-        /// <returns></returns>
-        public static async Task<long> CountAsync(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        internal static DBCommand CountPrepare(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where)
         {
-            try
-            {
-                var where = ColumnWhere.JoinForStatement(Where, Conn);
-                string where_query = where?.QueryString();
-                StringBuilder sb = new StringBuilder("SELECT COUNT(*) FROM ").Append(Table);
+            var where = ColumnWhere.JoinForStatement(Where, Conn);
+            string where_query = where?.QueryString();
+            StringBuilder sb = new StringBuilder("SELECT COUNT(*) FROM ").Append(Table);
 
-                //추가 조건절
-                if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+            //추가 조건절
+            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
-                using (var Stmt = Conn.Prepare(sb.ToString()))
-                {
-                    //추가 조건절이 존재하면 할당
-                    if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+            var Stmt = Conn.Prepare(sb.ToString());
+            //추가 조건절이 존재하면 할당
+            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
 
-                    return Convert.ToInt64(await Stmt.ExcuteOnceAsync());
-                }
-            }
-            finally { if (Close) Conn.Dispose(); }
+            return Stmt;
         }
         #endregion
 
@@ -241,52 +224,37 @@ namespace HS.DB.Extension
         /// <param name="Conn">SQL 커넥션</param>
         /// <param name="Table">게시판 테이블 이름</param>
         /// <param name="Where">조건</param>
-        /// <param name="Close">커넥션 닫기 여부</param>
         /// <returns></returns>
-        public static async Task<bool> DeleteAsync(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        internal static DBCommand DeletePrepare(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where = null)
         {
-            try
-            {
-                var where = ColumnWhere.JoinForStatement(Where, Conn);
-                string where_query = where?.QueryString();
-                StringBuilder sb = new StringBuilder("DELETE FROM ").Append(Table);
+            var where = ColumnWhere.JoinForStatement(Where, Conn);
+            string where_query = where?.QueryString();
+            StringBuilder sb = new StringBuilder("DELETE FROM ").Append(Table);
 
-                //추가 조건절
-                if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+            //추가 조건절
+            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
-                using (var Stmt = Conn.Prepare(sb.ToString()))
-                {
-                    //추가 조건절이 존재하면 할당
-                    if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
-                    return await Stmt.ExcuteNonQueryAsync() > 0;
-                }
-            }
-            finally { if (Close) Conn.Dispose(); }
+            var Stmt = Conn.Prepare(sb.ToString());
+            //추가 조건절이 존재하면 할당
+            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+            return Stmt;
         }
         #endregion
 
         #region Max
-        public static async Task<object> MaxAsync(DBManager Conn, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        public static DBCommand MaxPrepare(DBManager Conn, string Table, string Column, IEnumerable<ColumnWhere> Where = null)
         {
-            try
-            {
-                var where = ColumnWhere.JoinForStatement(Where, Conn);
-                string where_query = where?.QueryString();
-                StringBuilder sb = new StringBuilder($"SELECT MAX({Column}) FROM ").Append(Table);
+            var where = ColumnWhere.JoinForStatement(Where, Conn);
+            string where_query = where?.QueryString();
+            StringBuilder sb = new StringBuilder($"SELECT MAX({Column}) FROM ").Append(Table);
 
-                //추가 조건절
-                if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+            //추가 조건절
+            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
-                using (var Stmt = Conn.Prepare(sb.ToString()))
-                {
-                    //추가 조건절이 존재하면 할당
-                    if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
-
-                    var result = await Stmt.ExcuteOnceAsync();
-                    return result is DBNull ? null : result;
-                }
-            }
-            finally { if (Close) Conn.Dispose(); }
+            var Stmt = Conn.Prepare(sb.ToString());
+            //추가 조건절이 존재하면 할당
+            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+            return Stmt;
         }
         #endregion
     }

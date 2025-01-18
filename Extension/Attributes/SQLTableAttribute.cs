@@ -1,4 +1,4 @@
-﻿using HS.Utils;
+using HS.Utils;
 using System;
 
 namespace HS.DB.Extension.Attributes

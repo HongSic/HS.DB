@@ -1,4 +1,4 @@
-﻿using MySql.Data.MySqlClient;
+using MySql.Data.MySqlClient;
 using Oracle.ManagedDataAccess.Client;
 
 namespace HS.DB.Param
