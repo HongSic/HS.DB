@@ -4,7 +4,6 @@ using HS.DB.Result;
 using HS.Utils;
 using HS.Utils.Convert;
 using HS.Utils.Text;
-using Org.BouncyCastle.Asn1.Esf;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -124,7 +123,9 @@ namespace HS.DB.Extension
             foreach (var col in columns)
             {
                 sb.Append(First ? null : ", ");
-                if (col.Value.GetValue(Instance) == null)
+
+                var value = col.Value.GetValue(Instance);
+                if (value == null)
                 {
                     sb.Append("null");
                     keys_remove.Add(col.Key);
@@ -136,7 +137,7 @@ namespace HS.DB.Extension
                         VALUES.Add(col.Key, ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)));
                         sb.Append($"{Prefix}{col.Key}");
                     }
-                    else sb.Append(col.Value.GetDBValue(Instance));
+                    else sb.Append(Manager.GetDBValue(value));
                 }
                 First = false;
             }
@@ -213,7 +214,8 @@ namespace HS.DB.Extension
                 {
                     sb.Append(First ? null : ", ");
                     sb.Append(Manager.GetQuote(col.Key)).Append(" =");
-                    if (col.Value.GetValue(Instance) == null)
+                    var value = col.Value.GetValue(Instance);
+                    if (value == null)
                     {
                         sb.Append("null");
                         keys_remove.Add(col.Key);
@@ -221,7 +223,7 @@ namespace HS.DB.Extension
                     else
                     {
                         if (UseStatement) sb.Append($"{prefix}{col.Key}");
-                        else sb.Append(col.Value.GetDBValue(Instance));
+                        else sb.Append(Manager.GetDBValue(value));
                     }
                     First = false;
                 }
@@ -287,7 +289,7 @@ namespace HS.DB.Extension
         internal static string SQLDeleteBuild(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where, bool UseStatement, out ColumnWhere.Statement where)
         {
             where = ColumnWhere.JoinForStatement(Where, Conn);
-            string where_query = where?.QueryString();
+            string where_query = where?.QueryString(UseStatement);
             StringBuilder sb = new StringBuilder("DELETE FROM ").Append(Table);
 
             //추가 조건절
@@ -859,7 +861,7 @@ namespace HS.DB.Extension
             string where_query = WhereStatement?.QueryString();
             StringBuilder sb = new StringBuilder($"UPDATE {Table} SET {Manager.GetQuote(Column)}=");
             if (UseStatement) sb.Append($"{Prefix}{Column}");
-            else sb.Append(DBUtils.GetDBString(Value));
+            else sb.Append(Manager.GetDBValue(Value));
 
             //추가 조건절
             if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
@@ -1351,9 +1353,9 @@ namespace HS.DB.Extension
                         else if (_where.Condition == WhereCondition.OR) sb.Append(" OR ");
                     }
 
-                    if (_where.Kind == WhereKind.Equal) sb.Append(Manager.GetQuote(col.Key)).Append(" = ").Append(UseStatement ? $"{Prefix}{col.Key}" : col.Value.GetDBValue(Instance));
-                    else if (_where.Kind == WhereKind.NotEqual) sb.Append(Manager.GetQuote(col.Key)).Append(" <> ").Append(UseStatement ? $"{Prefix}{col.Key}" : col.Value.GetDBValue(Instance));
-                    else if (_where.Kind == WhereKind.LIKE) sb.Append(Manager.GetQuote(col.Key)).Append(" LIKE ").Append(UseStatement ? $"{Prefix}{col.Key}" : col.Value.GetDBValue(Instance));
+                    if (_where.Kind == WhereKind.Equal) sb.Append(Manager.GetQuote(col.Key)).Append(" = ").Append(UseStatement ? $"{Prefix}{col.Key}" : Manager.GetDBValue(col.Value.GetValue(Instance)));
+                    else if (_where.Kind == WhereKind.NotEqual) sb.Append(Manager.GetQuote(col.Key)).Append(" <> ").Append(UseStatement ? $"{Prefix}{col.Key}" : Manager.GetDBValue(col.Value.GetValue(Instance)));
+                    else if (_where.Kind == WhereKind.LIKE) sb.Append(Manager.GetQuote(col.Key)).Append(" LIKE ").Append(UseStatement ? $"{Prefix}{col.Key}" : Manager.GetDBValue(col.Value.GetValue(Instance)));
 
                     First = false;
                 }
@@ -1402,7 +1404,6 @@ namespace HS.DB.Extension
 
             public string OriginName => Info.Name;
             public object GetValue<T>(T Instance) where T : class => Info.GetValue(Instance);
-            public string GetDBValue<T>(T Instance) where T : class => DBUtils.GetDBString(GetValue(Instance));
         }
 
         internal class WhereData

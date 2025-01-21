@@ -8,13 +8,54 @@ using System.Data.Common;
 using System.Text;
 using HS.DB.Result;
 using HS.Utils.Text;
-using HS.DB.Manager;
-using HS.DB;
+using System.Collections.Generic;
 
 namespace HS.Utils
 {
     public static class DBUtils
     {
+        #region Type
+        #region Numric
+        public static readonly Type TYPE_BYTE = typeof(byte);
+        public static readonly Type TYPE_SBYTE = typeof(sbyte);
+        public static readonly Type TYPE_SHORT = typeof(short);
+        public static readonly Type TYPE_USHORT = typeof(ushort);
+        public static readonly Type TYPE_INT = typeof(int);
+        public static readonly Type TYPE_UINT = typeof(uint);
+        public static readonly Type TYPE_LONG = typeof(long);
+        public static readonly Type TYPE_ULONG = typeof(ulong);
+        public static readonly Type TYPE_FLOAT = typeof(float);
+        public static readonly Type TYPE_DOUBLE = typeof(double);
+        public static readonly Type TYPE_DECIMAL = typeof(decimal);
+        #endregion
+        #region Time / Date
+        public static readonly Type TYPE_TIMESPAN = typeof(TimeSpan);
+        public static readonly Type TYPE_DATETIME = typeof(DateTime);
+        public static readonly Type TYPE_DATETIME_OFFSET = typeof(DateTimeOffset);
+        #endregion
+        #region Array
+        public static readonly Type TYPE_ARRAY_BYTE = typeof(byte[]);
+        public static readonly Type TYPE_LIST_BYTE = typeof(List<byte>);
+        #endregion
+
+        public static bool IsTypeInteger(this Type type)
+        {
+            return
+                type == TYPE_BYTE || type == TYPE_SBYTE ||
+                type == TYPE_SHORT || type == TYPE_USHORT ||
+                type == TYPE_INT || type == TYPE_UINT ||
+                type == TYPE_LONG || type == TYPE_ULONG;
+        }
+        public static bool IsTypeNumeric(this Type type)
+        {
+            return type == TYPE_FLOAT || type == TYPE_DOUBLE || type == TYPE_DECIMAL;
+        }
+        public static bool IsTypeDateTime(this Type type)
+        {
+            return type == TYPE_DATETIME || type == TYPE_DATETIME_OFFSET;
+        }
+        #endregion
+
         #region JSONException
         public static string JSONException(this DbException ex) { return JSONException(ex, "데이터베이스 문제로 명령이 실패하였습니다."); }
         public static string JSONException(this DbException ex, string Message)
@@ -185,27 +226,18 @@ namespace HS.Utils
             {
                 Type type = value.GetType();
                 if (type == typeof(DBNull)) return null;
-                else if (type == typeof(byte[])) return System.Convert.ToBase64String((byte[])value, Base64FormattingOptions.None);
-                else if (type == typeof(byte) ||
-                         type == typeof(short) ||
-                         type == typeof(int) ||
-                         type == typeof(float) ||
-                         type == typeof(double) ||
-                         type == typeof(decimal)) return Quote ? string.Format("\"{0}\"", value.ToString()) : value.ToString();
+                else if (type == TYPE_ARRAY_BYTE) return System.Convert.ToBase64String((byte[])value, Base64FormattingOptions.None);
+                else if (IsTypeInteger(type) || IsTypeNumeric(type)) return Quote ? string.Format("\"{0}\"", value.ToString()) : value.ToString();
                 else return Quote ? string.Format("\"{0}\"", value.ToString()) : value.ToString();
             }
         }
         public static string GetTypeString(Type type)
         {
-            if (type == typeof(byte) ||
-                type == typeof(short) ||
-                type == typeof(int)) return "number";
-            if (type == typeof(float) ||
-                type == typeof(double) ||
-                type == typeof(decimal)) return "number";//"number_point";
-            else if (type == typeof(byte[])) return "array_byte";
-            else if (type == typeof(DateTime)) return "datetime";
-            else if (type == typeof(TimeSpan)) return "timespan";
+            if (IsTypeInteger(type)) return "integer";
+            if (IsTypeNumeric(type)) return "numeric";
+            if (type == TYPE_ARRAY_BYTE) return "array_byte";
+            if (IsTypeDateTime(type)) return "datetime";
+            if (type == TYPE_TIMESPAN) return "timespan";
             else return "string";
         }
 
@@ -214,10 +246,28 @@ namespace HS.Utils
         /// </summary>
         /// <param name="value"></param>
         /// <returns></returns>
-        public static string GetDBString(object value)
+        public static string GetDBString(dynamic value)
         {
             if (value == null) return "null";
-            else return $"'{value}'";
+            else
+            {
+                var type = value.GetType();
+                string _value;
+
+                if (IsTypeInteger(type) || IsTypeNumeric(type)) return value.ToString();
+                else if (IsTypeDateTime(type)) _value = value.ToString("yyyy-MM-dd hh:mm:ss.fff");
+                else if (type == TYPE_ARRAY_BYTE || type == TYPE_LIST_BYTE)
+                {
+                    //_value = BitConverter.ToString(value).Replace("-", "");
+                    StringBuilder sb = new StringBuilder("0x");
+                    int Count = type == TYPE_ARRAY_BYTE ? value.Length : value.Count;
+                    for (int i = 0; i < Count; i++) sb.AppendFormat("{0:X2}", value[i]);
+                    return sb.ToString();
+                }
+                else if (type == TYPE_TIMESPAN) _value = value.ToString("hh:mm:ss.fff");
+                else _value = value.ToString();
+                return $"'{_value}'";
+            }
         }
     }
 }

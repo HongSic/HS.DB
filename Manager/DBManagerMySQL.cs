@@ -1,4 +1,4 @@
-using HS.DB.Command;
+﻿using HS.DB.Command;
 using HS.DB.Connection;
 using HS.DB.Result;
 using HS.DB.Param;
@@ -15,7 +15,6 @@ namespace HS.DB.Manager
         public override DBConnection Connector { get { return conn; } }
         public override DBConnectionKind Kind { get { return DBConnectionKind.MySQL; } }
 
-        public override char StatementPrefix => '@';
         public override string GetQuote(string Keyword) => $"`{Keyword}`";
 
         internal DBManagerMySQL(DBConnectionMySQL Connector)

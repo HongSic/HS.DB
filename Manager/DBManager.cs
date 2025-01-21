@@ -1,15 +1,11 @@
-﻿#if MSSQL_MICROSOFT
-using Microsoft.Data.SqlClient;
-#else
-using System.Data.SqlClient;
-#endif
-using HS.DB.Command;
+﻿using HS.DB.Command;
 using HS.DB.Result;
 using System;
 using System.Threading.Tasks;
 using HS.DB.Manager;
 using System.Data.Common;
 using System.Data;
+using HS.Utils;
 
 namespace HS.DB
 {
@@ -22,9 +18,10 @@ namespace HS.DB
         /// Prepare (Statement) 를 사용시 접두어
         /// </summary>
         public virtual char StatementPrefix { get{ return '@'; } }
-        public virtual string GetQuote(string Keyword) => $"`{Keyword}`";
+        public abstract string GetQuote(string Keyword);
 
         public string GetStatementPrefix() => StatementPrefix == '\0' ? null : StatementPrefix.ToString();
+        public virtual string GetDBValue(object Value) => DBUtils.GetDBString(Value);
 
         public abstract DBCommand Prepare(string SQLQuery);
 
