@@ -22,6 +22,14 @@ namespace HS.DB.Manager
         public override DBConnectionKind Kind { get { return DBConnectionKind.MSSQL; } }
 
         public override string GetQuote(string Keyword) => $"[{Keyword}]";
+        /// <summary>
+        /// MSSQL(2016~)
+        /// </summary>
+        /// <param name="SQLQuery"></param>
+        /// <param name="Offset"></param>
+        /// <param name="Count"></param>
+        /// <returns></returns>
+        public override string ApplyLimitBuild(string SQLQuery, int Offset, int Count) => Count > 0 ? $"{SQLQuery} OFFSET {Offset} ROWS FETCH NEXT {Count} ROWS ONLY" : SQLQuery;
 
         internal DBManagerMSSQL(DBConnectionMSSQL Connector)
         {

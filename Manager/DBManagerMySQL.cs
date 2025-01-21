@@ -16,6 +16,7 @@ namespace HS.DB.Manager
         public override DBConnectionKind Kind { get { return DBConnectionKind.MySQL; } }
 
         public override string GetQuote(string Keyword) => $"`{Keyword}`";
+        public override string ApplyLimitBuild(string SQLQuery, int Offset, int Count) => Count > 0 ? $"{SQLQuery} LIMIT {Offset}, {Count}" : SQLQuery;
 
         internal DBManagerMySQL(DBConnectionMySQL Connector)
         {

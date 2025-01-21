@@ -182,34 +182,7 @@ namespace HS.DB.Extension
                 }
             }
 
-            return LimitBuild(Conn, sb.ToString(), Offset, Count);
-        }
-
-        /// <summary>
-        /// Add LIMIT / OFFSET Query (support Oracle, MSSQL(2016~), MySQL)
-        /// </summary>
-        /// <param name="DB"></param>
-        /// <param name="SQLQuery"></param>
-        /// <param name="Offset"></param>
-        /// <param name="Count"></param>
-        /// <returns></returns>
-        public static string LimitBuild(DBManager Conn, string SQLQuery, int Offset, int Count)
-        {
-            StringBuilder builder = new StringBuilder();
-            string where_limit = null;
-            if (Count > 0)
-            {
-                if (Conn is DBManagerMySQL) where_limit = $" LIMIT {Offset}, {Count}";
-                else if (Conn is DBManagerMSSQL) where_limit = $" OFFSET {Offset} ROWS FETCH NEXT {Count} ROWS ONLY";
-                else if (Conn is DBManagerOracle)
-                {
-                    //Conn.Connector.ServerVersion
-                    builder.Append("SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (");
-                    where_limit = $") a WHERE ROWNUM <= {Count + Offset}) WHERE rnum >= {Offset};";
-                }
-            }
-            builder.Append(SQLQuery).Append(where_limit);
-            return builder.ToString();
+            return Conn.ApplyLimitBuild(sb.ToString(), Offset, Count);
         }
         #endregion
     }

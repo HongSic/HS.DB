@@ -145,7 +145,7 @@ namespace HS.DB.Extension
             for (int i = 0; i < keys_remove.Count; i++) columns.Remove(keys_remove[i]);
 
             where = ColumnWhere.JoinForStatement(Where, Manager);
-            string where_query = where?.QueryString(UseStatement);
+            string where_query = where.QueryString(UseStatement);
             if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
             return sb.ToString();
@@ -250,7 +250,7 @@ namespace HS.DB.Extension
             var builder = SQLUpdateBuild(Manager, Instance, Where, true, out var p, out var columns, out var statement);
             var prepare = Manager.Prepare(builder);
             //추가 조건절이 존재하면 할당
-            statement.Apply(prepare);
+            statement?.Apply(prepare);
             //값 할당
             foreach (var col in columns) prepare.Add($"{p}{col.Key}", ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)) ?? DBNull.Value);
             return prepare;
@@ -271,7 +271,7 @@ namespace HS.DB.Extension
             using (var cmd = SQLUpdatePrepare<T>(Manager, Instance, Where))
                 return await cmd.ExcuteNonQueryAsync();
         }
-        public static Task<int> SQLUpdateAsyncUnsafe<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        public static Task<int> SQLUpdateUnsafeAsync<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
         {
             var query = SQLUpdateBuild(Manager, Instance, Where, false, out var _, out var _, out var _);
             return Manager.ExcuteNonQueryAsync(query);

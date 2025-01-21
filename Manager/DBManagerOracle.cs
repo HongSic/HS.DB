@@ -1,4 +1,4 @@
-using HS.DB.Command;
+﻿using HS.DB.Command;
 using HS.DB.Connection;
 using HS.DB.Result;
 using HS.DB.Param;
@@ -17,6 +17,18 @@ namespace HS.DB.Manager
 
         public override char StatementPrefix => ':';
         public override string GetQuote(string Keyword) => EnableQuote ? $"\"{Keyword}\"" : Keyword;
+        /// <summary>
+        /// Oracle 12c~
+        /// </summary>
+        /// <param name="SQLQuery"></param>
+        /// <param name="Offset"></param>
+        /// <param name="Count"></param>
+        /// <returns></returns>
+        public override string ApplyLimitBuild(string SQLQuery, int Offset, int Count)
+        {
+            //Conn.Connector.ServerVersion
+            return Count > 0 ? $"SELECT * FROM (SELECT a.*, ROWNUM rnum FROM ({SQLQuery}) a WHERE ROWNUM <= {Count + Offset}) WHERE rnum >= {Offset};" : SQLQuery;
+        }
 
         /// <summary>
         /// Turn off Quote when Oracle build SQL query

@@ -22,6 +22,14 @@ namespace HS.DB
 
         public string GetStatementPrefix() => StatementPrefix == '\0' ? null : StatementPrefix.ToString();
         public virtual string GetDBValue(object Value) => DBUtils.GetDBString(Value);
+        /// <summary>
+        /// Add LIMIT / OFFSET Query
+        /// </summary>
+        /// <param name="SQLQuery"></param>
+        /// <param name="Offset"></param>
+        /// <param name="Count"></param>
+        /// <returns></returns>
+        public abstract string ApplyLimitBuild(string SQLQuery, int Offset, int Count);
 
         public abstract DBCommand Prepare(string SQLQuery);
 
