@@ -1,4 +1,4 @@
-#if MSSQL_MICROSOFT
+﻿#if MSSQL_MICROSOFT
 using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
@@ -23,6 +23,8 @@ namespace HS.DB
         /// </summary>
         public virtual char StatementPrefix { get{ return '@'; } }
         public virtual string GetQuote(string Keyword) => $"`{Keyword}`";
+
+        public string GetStatementPrefix() => StatementPrefix == '\0' ? null : StatementPrefix.ToString();
 
         public abstract DBCommand Prepare(string SQLQuery);
 

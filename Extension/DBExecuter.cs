@@ -1,6 +1,5 @@
 using HS.DB.Command;
 using HS.DB.Manager;
-using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -109,10 +108,30 @@ namespace HS.DB.Extension
         /// <returns></returns>
         public static DBCommand ListBuild(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, IEnumerable<string> GroupBy = null)
         {
+            var query = _ListBuild(Conn, Table, Offset, Count, Columns, Where, Sort, GroupBy, true, out var where);
+            var Stmt = Conn.Prepare(query);
+            //추가 조건절이 존재하면 할당
+            where.Apply(Stmt);
+            return Stmt;
+        }
+        public static string ListBuildString(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns = null, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, IEnumerable<string> GroupBy = null) => _ListBuild(Conn, Table, Offset, Count, Columns, Where, Sort, GroupBy, false, out var _);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Conn">SQL 커넥션</param>
+        /// <param name="Table">테이블 이름</param>
+        /// <param name="Offset">불러올 오프셋 ()</param>
+        /// <param name="Count">불러올 갯수 (-1 면 모두)</param>
+        /// <param name="Columns">가져올 열 (null 이면 모두 가져오기)</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Sort">정렬 </param>
+        /// <returns></returns>
+        private static string _ListBuild(DBManager Conn, string Table, int Offset, int Count, IEnumerable<ColumnData> Columns, IEnumerable<ColumnWhere> Where, IEnumerable<ColumnOrderBy> Sort, IEnumerable<string> GroupBy, bool UseStatement, out ColumnWhere.Statement where)
+        {
             StringBuilder sb = new StringBuilder();
 
-            var where = ColumnWhere.JoinForStatement(Where, Conn);
-            string where_query = where?.QueryString();
+            where = ColumnWhere.JoinForStatement(Where, Conn);
+            string where_query = where?.QueryString(UseStatement);
 
             sb.Append("SELECT ");
             if (Columns != null)
@@ -163,12 +182,7 @@ namespace HS.DB.Extension
                 }
             }
 
-            //
-            string query = LimitBuild(Conn, sb.ToString(), Offset, Count);
-            var Stmt = Conn.Prepare(query);
-            //추가 조건절이 존재하면 할당
-            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
-            return Stmt;
+            return LimitBuild(Conn, sb.ToString(), Offset, Count);
         }
 
         /// <summary>
@@ -191,70 +205,11 @@ namespace HS.DB.Extension
                 {
                     //Conn.Connector.ServerVersion
                     builder.Append("SELECT * FROM (SELECT a.*, ROWNUM rnum FROM (");
-                    where_limit = $") a WHERE ROWNUM <= {Count + Offset}) WHERE rnum  >= {Offset};";
+                    where_limit = $") a WHERE ROWNUM <= {Count + Offset}) WHERE rnum >= {Offset};";
                 }
             }
             builder.Append(SQLQuery).Append(where_limit);
             return builder.ToString();
-        }
-        #endregion
-
-        #region Count
-        internal static DBCommand CountPrepare(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where)
-        {
-            var where = ColumnWhere.JoinForStatement(Where, Conn);
-            string where_query = where?.QueryString();
-            StringBuilder sb = new StringBuilder("SELECT COUNT(*) FROM ").Append(Table);
-
-            //추가 조건절
-            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
-
-            var Stmt = Conn.Prepare(sb.ToString());
-            //추가 조건절이 존재하면 할당
-            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
-
-            return Stmt;
-        }
-        #endregion
-
-        #region Delete
-        /// <summary>
-        /// 아이템 삭제
-        /// </summary>
-        /// <param name="Conn">SQL 커넥션</param>
-        /// <param name="Table">게시판 테이블 이름</param>
-        /// <param name="Where">조건</param>
-        /// <returns></returns>
-        internal static DBCommand DeletePrepare(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where = null)
-        {
-            var where = ColumnWhere.JoinForStatement(Where, Conn);
-            string where_query = where?.QueryString();
-            StringBuilder sb = new StringBuilder("DELETE FROM ").Append(Table);
-
-            //추가 조건절
-            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
-
-            var Stmt = Conn.Prepare(sb.ToString());
-            //추가 조건절이 존재하면 할당
-            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
-            return Stmt;
-        }
-        #endregion
-
-        #region Max
-        public static DBCommand MaxPrepare(DBManager Conn, string Table, string Column, IEnumerable<ColumnWhere> Where = null)
-        {
-            var where = ColumnWhere.JoinForStatement(Where, Conn);
-            string where_query = where?.QueryString();
-            StringBuilder sb = new StringBuilder($"SELECT MAX({Column}) FROM ").Append(Table);
-
-            //추가 조건절
-            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
-
-            var Stmt = Conn.Prepare(sb.ToString());
-            //추가 조건절이 존재하면 할당
-            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
-            return Stmt;
         }
         #endregion
     }

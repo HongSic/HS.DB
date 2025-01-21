@@ -1,4 +1,4 @@
-#if MSSQL_MICROSOFT
+﻿#if MSSQL_MICROSOFT
 using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
@@ -207,6 +207,17 @@ namespace HS.Utils
             else if (type == typeof(DateTime)) return "datetime";
             else if (type == typeof(TimeSpan)) return "timespan";
             else return "string";
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static string GetDBString(object value)
+        {
+            if (value == null) return "null";
+            else return $"'{value}'";
         }
     }
 }

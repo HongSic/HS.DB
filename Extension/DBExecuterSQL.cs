@@ -4,6 +4,7 @@ using HS.DB.Result;
 using HS.Utils;
 using HS.Utils.Convert;
 using HS.Utils.Text;
+using Org.BouncyCastle.Asn1.Esf;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -24,6 +25,65 @@ namespace HS.DB.Extension
             throw new NullReferenceException($"Class \"{type.Name}\" does not have table");
         }
 
+        internal static string SQLRawCommandBuild<T>(DBManager Manager, T Instance, string PrefixQuery, string Table, bool UseStatement, out Dictionary<string, ColumnData> columns, out WhereData where) where T : class
+        {
+            Type type = Instance.GetType();
+            columns = GetColumns(type, Instance, out var _);
+            StringBuilder sb = new StringBuilder(PrefixQuery);
+
+            //테이블
+            sb.Append(Table ?? GetTable(Manager, type));
+
+            //조건
+            where = BuildWhere(columns, UseStatement, Instance, Manager);
+            if (!where.IsEmpty()) sb.Append(where.Where);
+
+            return sb.ToString();
+        }
+        internal static DBCommand SQLRawCommandPrepare<T>(DBManager Manager, T Instance, string PrefixQuery, string Table) where T : class
+        {
+            char p = Manager.StatementPrefix;
+            var query = SQLRawCommandBuild(Manager, Instance, PrefixQuery, Table, true, out var columns, out var where);
+            var prepare = Manager.Prepare(query);
+            for (int i = 0; i < where.Columns.Count; i++)
+            {
+                var column = columns[where.Columns[i]];
+                prepare.Add($"{p}{where.Columns[i]}", ConvertValue(column.Column.Type, column.GetValue(Instance)));
+            }
+
+            return prepare;
+        }
+
+
+        /// <summary>
+        /// 1보다 크면 변경됨
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="ResultCount"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        internal static int GetExcuteNonQuery(DBManager Manager, int ResultCount, bool Close)
+        {
+            try { return ResultCount; }
+            finally { if (Close) Manager.Dispose(); }
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Value"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        internal static object GetValue(DBManager Manager, object Value, bool Close)
+        {
+            try
+            {
+                //값이 DBNull 이면 null 반환
+                return Value == DBNull.Value ? null : Value;
+            }
+            finally { if (Close) Manager.Dispose(); }
+        }
+
         #region SQL Insert
         /// <summary>
         /// 
@@ -33,9 +93,9 @@ namespace HS.DB.Extension
         /// <param name="Instance"></param>
         /// <returns></returns>
         /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static DBCommand _SQLInsertPrepare<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        internal static string SQLInsertBuild<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where, bool UseStatement, out string Prefix, out Dictionary<string, object> VALUES, out ColumnWhere.Statement where) where T : class
         {
-            var p = Manager.StatementPrefix;
+            Prefix = Manager.GetStatementPrefix();
             Type type = Instance.GetType();
             var columns = GetColumns(type, Instance, out var _);
             bool First = true;
@@ -57,7 +117,7 @@ namespace HS.DB.Extension
 
             sb.Append(") VALUES (");
 
-            Dictionary<string, object> VALUES = new Dictionary<string, object>();
+            VALUES = new Dictionary<string, object>();
             List<string> keys_remove = new List<string>(columns.Count);
             //값
             First = true;
@@ -71,33 +131,53 @@ namespace HS.DB.Extension
                 }
                 else
                 {
-                    VALUES.Add(col.Key, ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)));
-                    sb.Append($"{p}{col.Key}");
+                    if (UseStatement)
+                    {
+                        VALUES.Add(col.Key, ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)));
+                        sb.Append($"{Prefix}{col.Key}");
+                    }
+                    else sb.Append(col.Value.GetDBValue(Instance));
                 }
                 First = false;
             }
             sb.Append(")");
             for (int i = 0; i < keys_remove.Count; i++) columns.Remove(keys_remove[i]);
 
-
-            var where = ColumnWhere.JoinForStatement(Where, Manager);
-            string where_query = where?.QueryString();
+            where = ColumnWhere.JoinForStatement(Where, Manager);
+            string where_query = where?.QueryString(UseStatement);
             if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
-            var prepare = Manager.Prepare(sb.ToString());
+            return sb.ToString();
+        }
+        internal static DBCommand SQLInsertPrepare<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where) where T : class
+        {
+            var builder = SQLInsertBuild(Manager, Instance, Where, true, out var p, out var VALUES, out var where);
+            var prepare = Manager.Prepare(builder);
             //추가 조건절이 존재하면 할당
-            if (!string.IsNullOrEmpty(where_query)) where.Apply(prepare);
+            where.Apply(prepare);
+            //값 할당
+            foreach (var item in VALUES) prepare.Add($"{p}{item.Key}", item.Value);
             return prepare;
         }
-        public static bool SQLInsert<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        public static int SQLInsert<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
         {
-            using (var prepare = _SQLInsertPrepare(Manager, Instance, Where))
-                return prepare.ExcuteNonQuery() > 0;
+            using (var prepare = SQLInsertPrepare(Manager, Instance, Where))
+                return prepare.ExcuteNonQuery();
         }
-        public static async Task<bool> SQLInsertAsync<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        public static int SQLInsertUnsafe<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
         {
-            using (var prepare = _SQLInsertPrepare(Manager, Instance, Where))
-                return await prepare.ExcuteNonQueryAsync() > 0;
+            var query = SQLInsertBuild(Manager, Instance, Where, false, out var _, out var _, out var _);
+            return Manager.ExcuteNonQuery(query);
+        }
+        public static async Task<int> SQLInsertAsync<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            using (var prepare = SQLInsertPrepare(Manager, Instance, Where))
+                return await prepare.ExcuteNonQueryAsync();
+        }
+        public static Task<int> SQLInsertAsyncUnsafe<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            var query = SQLInsertBuild(Manager, Instance, Where, false, out var _, out var _, out var _);
+            return Manager.ExcuteNonQueryAsync(query);
         }
         #endregion
 
@@ -110,11 +190,11 @@ namespace HS.DB.Extension
         /// <param name="Instance"></param>
         /// <returns></returns>
         /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static DBCommand _SQLUpdatePrepare<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        internal static string SQLUpdateBuild<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where, bool UseStatement, out string prefix, out Dictionary<string, ColumnData> columns, out ColumnWhere.Statement statement) where T : class
         {
-            var p = Manager.StatementPrefix;
+            prefix = Manager.GetStatementPrefix();
             Type type = Instance.GetType();
-            var columns = GetColumns(type, Instance, out var _);
+            columns = GetColumns(type, Instance, out var _);
             bool First = true;
 
             StringBuilder sb = new StringBuilder("UPDATE ");
@@ -138,46 +218,171 @@ namespace HS.DB.Extension
                         sb.Append("null");
                         keys_remove.Add(col.Key);
                     }
-                    else sb.Append($"{p}{col.Key}");
+                    else
+                    {
+                        if (UseStatement) sb.Append($"{prefix}{col.Key}");
+                        else sb.Append(col.Value.GetDBValue(Instance));
+                    }
                     First = false;
                 }
             }
             for (int i = 0; i < keys_remove.Count; i++) columns.Remove(keys_remove[i]);
 
             //조건 (Primary Key)
-            ColumnWhere.Statement WhereStatement = null;
             if (Where == null)
             {
-                var where = BuildWhere(columns, Manager);
+                statement = null;
+                var where = BuildWhere(columns, UseStatement, Instance, Manager);
                 if (!where.IsEmpty()) sb.Append(where.Where);
             }
             else
             {
-                WhereStatement = ColumnWhere.JoinForStatement(Where, Manager);
-                sb.Append(" WHERE ").Append(WhereStatement?.QueryString());
+                statement = ColumnWhere.JoinForStatement(Where, Manager);
+                sb.Append(" WHERE ").Append(statement?.QueryString(UseStatement));
             }
 
-            var prepare = Manager.Prepare(sb.ToString());
-            WhereStatement?.Apply(prepare);
-            //foreach (var item in VALUES) prepare.Add($"@{item.Key}", item.Value);
+            return sb.ToString();
+        }
+        internal static DBCommand SQLUpdatePrepare<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            var builder = SQLUpdateBuild(Manager, Instance, Where, true, out var p, out var columns, out var statement);
+            var prepare = Manager.Prepare(builder);
+            //추가 조건절이 존재하면 할당
+            statement.Apply(prepare);
+            //값 할당
             foreach (var col in columns) prepare.Add($"{p}{col.Key}", ConvertValue(col.Value.Column.Type, col.Value.GetValue(Instance)) ?? DBNull.Value);
             return prepare;
         }
 
-        public static bool SQLUpdate<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        public static int SQLUpdate<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
         {
-            using (var cmd = _SQLUpdatePrepare<T>(Manager, Instance, Where))
-                return cmd.ExcuteNonQuery() > 0;
+            using (var cmd = SQLUpdatePrepare<T>(Manager, Instance, Where))
+                return cmd.ExcuteNonQuery();
         }
-        public static async Task<bool> SQLUpdateAsync<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        public static int SQLUpdateUnsafe<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
         {
-            using (var cmd = _SQLUpdatePrepare<T>(Manager, Instance, Where))
-                return await cmd.ExcuteNonQueryAsync() > 0;
+            var query = SQLUpdateBuild(Manager, Instance, Where, false, out var _, out var _, out var _);
+            return Manager.ExcuteNonQuery(query);
+        }
+        public static async Task<int> SQLUpdateAsync<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            using (var cmd = SQLUpdatePrepare<T>(Manager, Instance, Where))
+                return await cmd.ExcuteNonQueryAsync();
+        }
+        public static Task<int> SQLUpdateAsyncUnsafe<T>(this DBManager Manager, T Instance, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            var query = SQLUpdateBuild(Manager, Instance, Where, false, out var _, out var _, out var _);
+            return Manager.ExcuteNonQueryAsync(query);
         }
         #endregion
 
-        #region SQLQuery
-        private static DBCommand QueryPrepare<T>(this DBManager Manager, T Instance, out Dictionary<string, ColumnData> columns) where T : class
+        #region SQL Delete
+        /// <summary>
+        /// 아이템 삭제
+        /// </summary>
+        /// <param name="Conn">SQL 커넥션</param>
+        /// <param name="Table">테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <returns></returns>
+        internal static string SQLDeleteBuild(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where, bool UseStatement, out ColumnWhere.Statement where)
+        {
+            where = ColumnWhere.JoinForStatement(Where, Conn);
+            string where_query = where?.QueryString();
+            StringBuilder sb = new StringBuilder("DELETE FROM ").Append(Table);
+
+            //추가 조건절
+            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+
+            return sb.ToString();
+        }
+        internal static DBCommand SQLDeletePrepare(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where)
+        {
+            var query = SQLDeleteBuild(Conn, Table, Where, true, out var where);
+            var Stmt = Conn.Prepare(query);
+            //추가 조건절이 존재하면 할당
+            where.Apply(Stmt);
+            return Stmt;
+        }
+
+        #region Normal
+        public static int SQLDelete(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            using (var cmd = SQLDeletePrepare(Manager, Table, Where))
+                return GetExcuteNonQuery(Manager, cmd.ExcuteNonQuery(), Close);
+        }
+        public static int SQLDelete(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLDelete(Manager, Table, Where, false);
+        public static int SQLDelete<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDelete(Manager, GetTable(Manager, typeof(T)), Where, Close);
+        public static int SQLDelete<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            using (var cmd = SQLRawCommandPrepare(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T))))
+                return GetExcuteNonQuery(Manager, cmd.ExcuteNonQuery(), Close);
+        }
+
+        public static int SQLDeleteUnsafe(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            var query = SQLDeleteBuild(Manager, Table, Where, false, out var _);
+            return GetExcuteNonQuery(Manager, Manager.ExcuteNonQuery(query), Close);
+        }
+        public static int SQLDeleteUnsafe(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLDeleteUnsafe(Manager, Table, Where, false);
+        public static int SQLDeleteUnsafe<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDeleteUnsafe(Manager, GetTable(Manager, typeof(T)), Where, Close);
+        public static int SQLDeleteUnsafe<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            var query = SQLRawCommandBuild(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T)), false, out var _, out var _);
+            return GetExcuteNonQuery(Manager, Manager.ExcuteNonQuery(query), Close);
+        }
+        #endregion
+
+        #region Async
+        public static async Task<int> SQLDeleteAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            using (var cmd = SQLDeletePrepare(Manager, Table, Where))
+                return GetExcuteNonQuery(Manager, await cmd.ExcuteNonQueryAsync(), Close);
+        }
+        public static Task<int> SQLDeleteAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLDeleteAsync(Manager, Table, Where, false);
+        public static Task<int> SQLDeleteAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDeleteAsync(Manager, GetTable(Manager, typeof(T)), Where, Close);
+        public static async Task<int> SQLDeleteAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            using (var cmd = SQLRawCommandPrepare(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T))))
+                return GetExcuteNonQuery(Manager, await cmd.ExcuteNonQueryAsync(), Close);
+        }
+
+        public static async Task<int> SQLDeleteUnsafeAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            var query = SQLDeleteBuild(Manager, Table, Where, false, out var _);
+            return GetExcuteNonQuery(Manager, await Manager.ExcuteNonQueryAsync(query), Close);
+        }
+        public static Task<int> SQLDeleteUnsafeAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLDeleteUnsafeAsync(Manager, Table, Where, false);
+        public static Task<int> SQLDeleteUnsafeAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDeleteUnsafeAsync(Manager, GetTable(Manager, typeof(T)), Where, Close);
+        public static async Task<int> SQLDeleteUnsafeAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            var query = SQLRawCommandBuild(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T)), false, out var _, out var _);
+            return GetExcuteNonQuery(Manager, await Manager.ExcuteNonQueryAsync(query), Close);
+        }
+        #endregion
+        #endregion
+
+        #region SQL Query
+        #region SQL Query Instance
+        internal static bool SQLQueryInstanceApply<T>(DBResult result, Dictionary<string, ColumnData> columns, T Instance)
+        {
+            using (result)
+            {
+                if (result.MoveNext())
+                {
+                    foreach (var column in columns)
+                    {
+                        if (result.ColumnExist(column.Value.OriginName))
+                        {
+                            object value = ConvertValue(column.Value.Type, result[column.Value.OriginName]);
+                            column.Value.Info.SetValue(Instance, value);
+                        }
+                    }
+                    return true;
+                }
+                else return false;
+            }
+        }
+        internal static string SQLQueryInstanceBuild<T>(this DBManager Manager, T Instance, bool UseStatement, out Dictionary<string, ColumnData> columns, out WhereData where) where T : class
         {
             var p = Manager.StatementPrefix;
             Type type = Instance.GetType();
@@ -204,7 +409,7 @@ namespace HS.DB.Extension
             sb.Append(Table);
 
             //조건
-            var where = BuildWhere(columns, Manager);
+            where = BuildWhere(columns, UseStatement, Manager);
             if (!where.IsEmpty()) sb.Append(where.Where);
 
             //정렬
@@ -220,7 +425,13 @@ namespace HS.DB.Extension
                 }
             }
 
-            var prepare = Manager.Prepare(sb.ToString());
+            return sb.ToString();
+        }
+        internal static DBCommand SQLQueryInstancePrepare<T>(this DBManager Manager, T Instance, out Dictionary<string, ColumnData> columns) where T : class
+        {
+            var p = Manager.StatementPrefix;
+            var query = SQLQueryInstanceBuild(Manager, Instance, true, out columns, out var where);
+            var prepare = Manager.Prepare(query);
             for (int i = 0; i < where.Columns.Count; i++)
             {
                 var column = columns[where.Columns[i]];
@@ -229,7 +440,7 @@ namespace HS.DB.Extension
             return prepare;
         }
 
-        #region SQLQueryInatance
+        #region Normal
         /// <summary>
         /// 
         /// </summary>
@@ -238,27 +449,10 @@ namespace HS.DB.Extension
         /// <param name="Instance"></param>
         /// <returns></returns>
         /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static bool SQLQueryInatance<T>(this DBManager Manager, T Instance) where T : class
+        public static bool SQLQueryInstance<T>(this DBManager Manager, T Instance) where T : class
         {
-            using (var cmd = QueryPrepare(Manager, Instance, out var columns))
-            {
-                using (var result = cmd.Excute())
-                {
-                    if (result.MoveNext())
-                    {
-                        foreach (var column in columns)
-                        {
-                            if (result.ColumnExist(column.Value.OriginName))
-                            {
-                                object value = ConvertValue(column.Value.Type, result[column.Value.OriginName]);
-                                column.Value.Info.SetValue(Instance, value);
-                            }
-                        }
-                        return true;
-                    }
-                    else return false;
-                }
-            }
+            using (DBCommand cmd = SQLQueryInstancePrepare(Manager, Instance, out var columns))
+                return SQLQueryInstanceApply(cmd.Excute(), columns, Instance);
         }
         /// <summary>
         /// 
@@ -268,31 +462,44 @@ namespace HS.DB.Extension
         /// <param name="Instance"></param>
         /// <returns></returns>
         /// <exception cref="NullReferenceException">When Class has no table</exception>
-        public static async Task<bool> SQLQueryInatanceAsync<T>(this DBManager Manager, T Instance) where T : class
+        public static bool SQLQueryInstanceUnsafe<T>(this DBManager Manager, T Instance) where T : class
         {
-            using (var cmd = QueryPrepare(Manager, Instance, out var columns))
-            {
-                using (var result = await cmd.ExcuteAsync())
-                {
-                    if (result.MoveNext())
-                    {
-                        foreach (var column in columns)
-                        {
-                            if (result.ColumnExist(column.Value.OriginName))
-                            {
-                                object value = ConvertValue(column.Value.Type, result[column.Value.OriginName]);
-                                column.Value.Info.SetValue(Instance, value);
-                            }
-                        }
-                        return true;
-                    }
-                    else return false;
-                }
-            }
+            var query = SQLQueryInstanceBuild(Manager, Instance, false, out var columns, out var _);
+            return SQLQueryInstanceApply(Manager.Excute(query), columns, Instance);
         }
         #endregion
 
-        #region SQLQueryOnceAsync
+        #region Async
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Manager"></param>
+        /// <param name="Instance"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
+        public static async Task<bool> SQLQueryInstanceAsync<T>(this DBManager Manager, T Instance) where T : class
+        {
+            using (var cmd = SQLQueryInstancePrepare(Manager, Instance, out var columns))
+                return SQLQueryInstanceApply(await cmd.ExcuteAsync(), columns, Instance);
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="Manager"></param>
+        /// <param name="Instance"></param>
+        /// <returns></returns>
+        /// <exception cref="NullReferenceException">When Class has no table</exception>
+        public static async Task<bool> SQLQueryInstanceUnsafeAsync<T>(this DBManager Manager, T Instance) where T : class
+        {
+            var query = SQLQueryInstanceBuild(Manager, Instance, false, out var columns, out var _);
+            return SQLQueryInstanceApply(await Manager.ExcuteAsync(query), columns, Instance);
+        }
+        #endregion
+        #endregion
+
+        #region SQL Query Once
         #region Normal
         public static T SQLQueryOnce<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class => SQLQueryOnce<T>(Manager, null, Where);
         public static T SQLQueryOnce<T>(this DBManager Manager, string Table, params ColumnWhere[] Where) where T : class
@@ -302,6 +509,19 @@ namespace HS.DB.Extension
         }
         public static T SQLQueryOnce<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null) where T : class => SQLQueryOnce<T>(Manager, null, Where);
         public static T SQLQueryOnce<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            List<T> list = SQLQuery<T>(Manager, Table, Where, null, 0, -1);
+            return list.Count == 0 ? null : list[0];
+        }
+
+        public static T SQLQueryOnceUnsafe<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class => SQLQueryOnceUnsafe<T>(Manager, null, Where);
+        public static T SQLQueryOnceUnsafe<T>(this DBManager Manager, string Table, params ColumnWhere[] Where) where T : class
+        {
+            List<T> list = SQLQuery<T>(Manager, Table, Where, null, 0, -1);
+            return list.Count == 0 ? null : list[0];
+        }
+        public static T SQLQueryOnceUnsafe<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null) where T : class => SQLQueryOnceUnsafe<T>(Manager, null, Where);
+        public static T SQLQueryOnceUnsafe<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null) where T : class
         {
             List<T> list = SQLQuery<T>(Manager, Table, Where, null, 0, -1);
             return list.Count == 0 ? null : list[0];
@@ -321,10 +541,23 @@ namespace HS.DB.Extension
             List<T> list = await SQLQueryAsync<T>(Manager, Table, Where, null, 0, -1);
             return list.Count == 0 ? null : list[0];
         }
+
+        public static Task<T> SQLQueryOnceUnsafeAsync<T>(this DBManager Manager, params ColumnWhere[] Where) where T : class => SQLQueryOnceUnsafeAsync<T>(Manager, null, Where);
+        public static async Task<T> SQLQueryOnceUnsafeAsync<T>(this DBManager Manager, string Table, params ColumnWhere[] Where) where T : class
+        {
+            List<T> list = await SQLQueryUnsafeAsync<T>(Manager, Table, Where, null, 0, -1);
+            return list.Count == 0 ? null : list[0];
+        }
+        public static Task<T> SQLQueryOnceUnsafeAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null) where T : class => SQLQueryOnceUnsafeAsync<T>(Manager, null, Where);
+        public static async Task<T> SQLQueryOnceUnsafeAsync<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            List<T> list = await SQLQueryUnsafeAsync<T>(Manager, Table, Where, null, 0, -1);
+            return list.Count == 0 ? null : list[0];
+        }
         #endregion
         #endregion
 
-        #region SQLQueryOnceGroupAsync
+        #region SQL Query Once Group
         #region Normal
         public static T SQLQueryOnceGroup<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null) where T : class => SQLQueryOnceGroup<T>(Manager, null, GroupBy, Where);
         public static T SQLQueryOnceGroup<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null) where T : class
@@ -332,10 +565,22 @@ namespace HS.DB.Extension
             List<T> list = SQLQueryGroup<T>(Manager, Table, GroupBy, Where, null, 0, -1);
             return list.Count == 0 ? null : list[0];
         }
+        public static T SQLQueryOnceGroupUnsafe<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null) where T : class => SQLQueryOnceGroupUnsafe<T>(Manager, null, GroupBy, Where);
+        public static T SQLQueryOnceGroupUnsafe<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            List<T> list = SQLQueryGroupUnsafe<T>(Manager, Table, GroupBy, Where, null, 0, -1);
+            return list.Count == 0 ? null : list[0];
+        }
         public static T SQLQueryOnceGroup<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class => SQLQueryOnceGroup<T>(Manager, null, GroupBy, Where, Offset);
         public static T SQLQueryOnceGroup<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class
         {
             List<T> list = SQLQueryGroup<T>(Manager, Table, GroupBy, Where, null, Offset, 1);
+            return list.Count == 0 ? null : list[0];
+        }
+        public static T SQLQueryOnceGroupUnsafe<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class => SQLQueryOnceGroupUnsafe<T>(Manager, null, GroupBy, Where, Offset);
+        public static T SQLQueryOnceGroupUnsafe<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class
+        {
+            List<T> list = SQLQueryGroupUnsafe<T>(Manager, Table, GroupBy, Where, null, Offset, 1);
             return list.Count == 0 ? null : list[0];
         }
         #endregion
@@ -353,11 +598,24 @@ namespace HS.DB.Extension
             List<T> list = await SQLQueryGroupAsync<T>(Manager, Table, GroupBy, Where, null, Offset, 1);
             return list.Count == 0 ? null : list[0];
         }
+
+        public static Task<T> SQLQueryOnceGroupUnsafeAsync<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null) where T : class => SQLQueryOnceGroupUnsafeAsync<T>(Manager, null, GroupBy, Where);
+        public static async Task<T> SQLQueryOnceGroupUnsafeAsync<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null) where T : class
+        {
+            List<T> list = await SQLQueryGroupUnsafeAsync<T>(Manager, Table, GroupBy, Where, null, 0, -1);
+            return list.Count == 0 ? null : list[0];
+        }
+        public static Task<T> SQLQueryOnceGroupUnsafeAsync<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class => SQLQueryOnceGroupUnsafeAsync<T>(Manager, null, GroupBy, Where, Offset);
+        public static async Task<T> SQLQueryOnceGroupUnsafeAsync<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, int Offset = 0) where T : class
+        {
+            List<T> list = await SQLQueryGroupUnsafeAsync<T>(Manager, Table, GroupBy, Where, null, Offset, 1);
+            return list.Count == 0 ? null : list[0];
+        }
         #endregion
         #endregion
 
-        #region SQLQuery / SQLQueryGroup
-        private static List<T> _SQLQueryGroup<T>(DBResult result, Type type, ListData data)
+        #region SQL Query / SQL Query Group [개선]
+        internal static List<T> SQLQueryGroupApply<T>(DBResult result, Type type, ListData data)
         {
             using (result)
             {
@@ -384,12 +642,28 @@ namespace HS.DB.Extension
         public static List<T> SQLQuery<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroup<T>(Manager, null, null, Where, Sort, Offset, Count);
         public static List<T> SQLQuery<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroup<T>(Manager, Table, null, Where, Sort, Offset, Count);
         public static List<T> SQLQueryGroup<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroup<T>(Manager, null, GroupBy, Where, Sort, Offset, Count);
-        public static List<T> SQLQueryGroup<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class
+        public static List<T> SQLQueryGroup<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => _SQLQueryGroup<T>(Manager, null, GroupBy, Where, Sort, Offset, Count, true);
+
+        public static List<T> SQLQueryUnsafe<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupUnsafe<T>(Manager, null, null, Where, Sort, Offset, Count);
+        public static List<T> SQLQueryUnsafe<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupUnsafe<T>(Manager, Table, null, Where, Sort, Offset, Count);
+        public static List<T> SQLQueryGroupUnsafe<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupUnsafe<T>(Manager, null, GroupBy, Where, Sort, Offset, Count);
+        public static List<T> SQLQueryGroupUnsafe<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => _SQLQueryGroup<T>(Manager, null, GroupBy, Where, Sort, Offset, Count, false);
+        private static List<T> _SQLQueryGroup<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where, IEnumerable<ColumnOrderBy> Sort, int Offset, int Count, bool UseStatement) where T : class
         {
             Type type = typeof(T);
             var data = ListData.FromInstance<T>(out string _Table, Manager);
-            var prepare = DBExecuter.ListBuild(Manager, Table ?? _Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort, GroupBy);
-            return _SQLQueryGroup<T>(prepare.Excute(), type, data);
+            DBResult result;
+            if (UseStatement)
+            {
+                var prepare = DBExecuter.ListBuild(Manager, Table ?? _Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort, GroupBy);
+                result = prepare.Excute();
+            }
+            else
+            {
+                var query = DBExecuter.ListBuildString(Manager, Table ?? _Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort, GroupBy);
+                result = Manager.Excute(query);
+            }
+            return SQLQueryGroupApply<T>(result, type, data);
         }
         #endregion
 
@@ -408,8 +682,13 @@ namespace HS.DB.Extension
         /// <exception cref="NullReferenceException">When Class has no table</exception>
         public static Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupAsync<T>(Manager, null, null, Where, Sort, Offset, Count);
         public static Task<List<T>> SQLQueryAsync<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupAsync<T>(Manager, Table, null, Where, Sort, Offset, Count);
+        public static Task<List<T>> SQLQueryUnsafeAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupUnsafeAsync<T>(Manager, null, null, Where, Sort, Offset, Count);
+        public static Task<List<T>> SQLQueryUnsafeAsync<T>(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupUnsafeAsync<T>(Manager, Table, null, Where, Sort, Offset, Count);
         public static Task<List<T>> SQLQueryGroupAsync<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupAsync<T>(Manager, null, GroupBy, Where, Sort, Offset, Count);
-        public static async Task<List<T>> SQLQueryGroupAsync<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class
+        public static Task<List<T>> SQLQueryGroupAsync<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => _SQLQueryGroupAsync<T>(Manager, null, GroupBy, Where, Sort, Offset, Count, true);
+        public static Task<List<T>> SQLQueryGroupUnsafeAsync<T>(this DBManager Manager, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => SQLQueryGroupUnsafeAsync<T>(Manager, null, GroupBy, Where, Sort, Offset, Count);
+        public static Task<List<T>> SQLQueryGroupUnsafeAsync<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where = null, IEnumerable<ColumnOrderBy> Sort = null, int Offset = 0, int Count = -1) where T : class => _SQLQueryGroupAsync<T>(Manager, null, GroupBy, Where, Sort, Offset, Count, false);
+        private static async Task<List<T>> _SQLQueryGroupAsync<T>(this DBManager Manager, string Table, IEnumerable<string> GroupBy, IEnumerable<ColumnWhere> Where, IEnumerable<ColumnOrderBy> Sort, int Offset, int Count, bool UseStatement) where T : class
         {
             Type type = typeof(T);
             /*
@@ -468,25 +747,41 @@ namespace HS.DB.Extension
             }
             */
             var data = ListData.FromInstance<T>(out string _Table, Manager);
-            var prepare = DBExecuter.ListBuild(Manager, Table ?? _Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort, GroupBy);
-            return _SQLQueryGroup<T>(await prepare.ExcuteAsync(), type, data);
+            DBResult result;
+            if (UseStatement)
+            {
+                var prepare = DBExecuter.ListBuild(Manager, Table ?? _Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort, GroupBy);
+                result = await prepare.ExcuteAsync();
+            }
+            else 
+            {
+                var query = DBExecuter.ListBuildString(Manager, Table ?? _Table, Offset, Count, data.Columns, Where, Sort ?? data.Sort, GroupBy);
+                result = await Manager.ExcuteAsync(query);
+            }
+
+            return SQLQueryGroupApply<T>(result, type, data);
         }
         #endregion
         #endregion
 
-        #region SQL Get Value
-        public static DBCommand GetValueOncePrepare(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null)
+        #region SQL Value
+        #region SQL Value Get
+        internal static string GetValueOnceBuild(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where, bool UseStatement, out ColumnWhere.Statement where)
         {
-            var where = ColumnWhere.JoinForStatement(Where, Manager);
-            string where_query = where?.QueryString();
+            where = ColumnWhere.JoinForStatement(Where, Manager);
+            string where_query = where?.QueryString(UseStatement);
             StringBuilder sb = new StringBuilder($"SELECT {Column} FROM ").Append(Table);
 
             //추가 조건절
             if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
-
-            var Stmt = Manager.Prepare(sb.ToString());
+            return sb.ToString();
+        }
+        public static DBCommand GetValueOncePrepare(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null)
+        {
+            var query = GetValueOnceBuild(Manager, Table, Column, Where, true, out var where);
+            var Stmt = Manager.Prepare(query);
             //추가 조건절이 존재하면 할당
-            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+            where.Apply(Stmt);
             return Stmt;
         }
 
@@ -502,19 +797,25 @@ namespace HS.DB.Extension
         /// <returns></returns>
         public static object SQLGetValueOnce(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            try
-            {
-                using (var cmd = GetValueOncePrepare(Manager, Table, Column, Where))
-                {
-                    //값이 DBNull 이면 null 반환
-                    var value = cmd.ExcuteOnce();
-                    return value == DBNull.Value ? null : value;
-                }
-            }
-            finally { if (Close) Manager.Dispose(); }
+            using (var cmd = GetValueOncePrepare(Manager, Table, Column, Where))
+                return GetValue(Manager, cmd.ExcuteOnce(), Close);
         }
-        public static object SQLGetValueOnce<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class
-            => SQLGetValueOnce(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+        public static object SQLGetValueOnce<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class => SQLGetValueOnce(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <param name="Column"></param>
+        /// <param name="Where"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static object SQLGetValueOnceUnsafe(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            var query = GetValueOnceBuild(Manager, Table, Column, Where, false, out var _);
+            return GetValue(Manager, Manager.ExcuteOnce(query), Close);
+        }
+        public static object SQLGetValueOnceUnsafe<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class => SQLGetValueOnce(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
         #endregion
 
         #region Async
@@ -529,57 +830,67 @@ namespace HS.DB.Extension
         /// <returns></returns>
         public static async Task<object> SQLGetValueOnceAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            try
-            {
-                using (var cmd = GetValueOncePrepare(Manager, Table, Column, Where))
-                {
-                    //값이 DBNull 이면 null 반환
-                    var value = await cmd.ExcuteOnceAsync();
-                    return value == DBNull.Value ? null : value;
-                }
-            }
-            finally { if (Close) Manager.Dispose(); }
+            using (var cmd = GetValueOncePrepare(Manager, Table, Column, Where))
+                return GetValue(Manager, await cmd.ExcuteOnceAsync(), Close);
         }
-        public static Task<object> SQLGetValueOnceAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class
-            => SQLGetValueOnceAsync(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+        public static Task<object> SQLGetValueOnceAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class => SQLGetValueOnceAsync(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <param name="Column"></param>
+        /// <param name="Where"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static async Task<object> SQLGetValueOnceUnsafeAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            var query = GetValueOnceBuild(Manager, Table, Column, Where, false, out var _);
+            return GetValue(Manager, await Manager.ExcuteOnceAsync(query), Close);
+        }
+        public static Task<object> SQLGetValueOnceUnsafeAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class => SQLGetValueOnceUnsafeAsync(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
         #endregion
         #endregion
 
-        #region SQL Set Value
-        private static DBCommand SetValueOncePrepare(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null)
+        #region SQL Value Set
+        internal static string SetValueOnceBuild(this DBManager Manager, string Prefix, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where, bool UseStatement, out ColumnWhere.Statement WhereStatement)
         {
-            char p = Manager.StatementPrefix;
-            var where = ColumnWhere.JoinForStatement(Where, Manager);
-            string where_query = where?.QueryString();
-            StringBuilder sb = new StringBuilder($"UPDATE {Table} SET {Column}={p}{Column}");
+            WhereStatement = ColumnWhere.JoinForStatement(Where, Manager);
+            string where_query = WhereStatement?.QueryString();
+            StringBuilder sb = new StringBuilder($"UPDATE {Table} SET {Manager.GetQuote(Column)}=");
+            if (UseStatement) sb.Append($"{Prefix}{Column}");
+            else sb.Append(DBUtils.GetDBString(Value));
 
             //추가 조건절
             if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
-            var Stmt = Manager.Prepare(sb.ToString());
+            return sb.ToString();
+        }
+        internal static DBCommand SetValueOncePrepare(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null)
+        {
+            var p = Manager.GetStatementPrefix();
+            var query = SetValueOnceBuild(Manager, p, Table, Column, Value, Where, true, out var where);
 
+            var Stmt = Manager.Prepare(query);
             Stmt.Add($"{p}{Column}", Value ?? DBNull.Value);
-
             //추가 조건절이 존재하면 할당
-            if (!string.IsNullOrEmpty(where_query)) where.Apply(Stmt);
+            where.Apply(Stmt);
             return Stmt;
         }
 
         #region Normal
-        public static bool SQLSetValueOnce(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        public static int SQLSetValueOnce(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            try
-            {
-                using (var cmd = SetValueOncePrepare(Manager, Table, Column, Value, Where))
-                {
-                    //1보다 크면 변경됨
-                    return cmd.ExcuteNonQuery() > 0;
-                }
-            }
-            finally { if (Close) Manager.Dispose(); }
+            using (var cmd = SetValueOncePrepare(Manager, Table, Column, Value, Where))
+                return GetExcuteNonQuery(Manager, cmd.ExcuteNonQuery(), Close);
         }
-        public static bool SQLSetValueOnce<T>(this DBManager Manager, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false) =>
-            SQLSetValueOnce(Manager, GetTable(Manager, typeof(T)), Column, Value, Where, Close);
+        public static int SQLSetValueOnce<T>(this DBManager Manager, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLSetValueOnce(Manager, GetTable(Manager, typeof(T)), Column, Value, Where, Close);
+        public static int SQLSetValueOnceUnsafe(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            var query = SetValueOnceBuild(Manager, null, Table, Column, Value, Where, false, out var _);
+            return GetExcuteNonQuery(Manager, Manager.ExcuteNonQuery(query), Close);
+        }
+        public static int SQLSetValueOnceUnsafe<T>(this DBManager Manager, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLSetValueOnceUnsafe(Manager, GetTable(Manager, typeof(T)), Column, Value, Where, Close);
         #endregion
 
         #region Async
@@ -593,49 +904,58 @@ namespace HS.DB.Extension
         /// <param name="Where"></param>
         /// <param name="Close"></param>
         /// <returns></returns>
-        public static async Task<bool> SQLSetValueOnceAsync(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        public static async Task<int> SQLSetValueOnceAsync(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            try
-            {
-                using (var cmd = SetValueOncePrepare(Manager, Table, Column, Value, Where))
-                {
-                    //1보다 크면 변경됨
-                    return await cmd.ExcuteNonQueryAsync() > 0;
-                }
-            }
+            using (var cmd = SetValueOncePrepare(Manager, Table, Column, Value, Where))
+                return GetExcuteNonQuery(Manager, await cmd.ExcuteNonQueryAsync(), Close);
+        }
+        public static Task<int> SQLSetValueOnceAsync<T>(this DBManager Manager, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class =>  SQLSetValueOnceAsync(Manager, GetTable(Manager, typeof(T)), Column, Value, Where, Close);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <param name="Column"></param>
+        /// <param name="Value"></param>
+        /// <param name="Where"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static async Task<int> SQLSetValueOnceUnsafeAsync(this DBManager Manager, string Table, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            var query = SetValueOnceBuild(Manager, null, Table, Column, Value, Where, false, out var _);
+            return GetExcuteNonQuery(Manager, await Manager.ExcuteNonQueryAsync(query), Close);
+        }
+        public static Task<int> SQLSetValueOnceUnsafeAsync<T>(this DBManager Manager, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class => SQLSetValueOnceUnsafeAsync(Manager, GetTable(Manager, typeof(T)), Column, Value, Where, Close);
+        #endregion
+        #endregion
+        #endregion
+
+        #region SQL Count
+        internal static long SQLCountApply(this DBManager Manager, object Count, bool Close = false)
+        {
+            try { return Convert.ToInt64(Count); }
             finally { if (Close) Manager.Dispose(); }
         }
-        public static Task<bool> SQLSetValueOnceAsync<T>(this DBManager Manager, string Column, object Value, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class =>
-            SQLSetValueOnceAsync(Manager, GetTable(Manager, typeof(T)), Column, Value, Where, Close);
-
-        #endregion
-        #endregion
-
-        private static DBCommand SQLRawCommand<T>(DBManager Manager, T Instance, string Prefix, string Table = null) where T : class
+        internal static string SQLCountBuild(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where, bool UseStatement, out ColumnWhere.Statement where)
         {
-            char p = Manager.StatementPrefix;
-            Type type = Instance.GetType();
-            var columns = GetColumns(type, Instance, out var _);
-            StringBuilder sb = new StringBuilder(Prefix);
+            where = ColumnWhere.JoinForStatement(Where, Conn);
+            string where_query = where?.QueryString(UseStatement);
+            StringBuilder sb = new StringBuilder("SELECT COUNT(*) FROM ").Append(Table);
 
-            //테이블
-            sb.Append(Table ?? GetTable(Manager, type));
+            //추가 조건절
+            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
 
-            //조건
-            var where = BuildWhere(columns, Manager);
-            if (!where.IsEmpty()) sb.Append(where.Where);
-
-
-            var prepare = Manager.Prepare(sb.ToString());
-            for (int i = 0; i < where.Columns.Count; i++)
-            {
-                var column = columns[where.Columns[i]];
-                prepare.Add($"{p}{where.Columns[i]}", ConvertValue(column.Column.Type, column.GetValue(Instance)));
-            }
-
-            return prepare;
+            return sb.ToString();
         }
-        #region SQL Count
+        internal static DBCommand SQLCountPrepare(DBManager Conn, string Table, IEnumerable<ColumnWhere> Where)
+        {
+            var query = SQLCountBuild(Conn, Table, Where, true, out var where);
+            var Stmt = Conn.Prepare(query);
+            //추가 조건절이 존재하면 할당
+            where.Apply(Stmt);
+            return Stmt;
+        }
+
         #region Normal
         /// <summary>
         /// 갯수 구하기
@@ -647,131 +967,203 @@ namespace HS.DB.Extension
         /// <returns></returns>
         public static long SQLCount(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            try
-            {
-                using (var Stmt = DBExecuter.CountPrepare(Manager, Table, Where))
-                    return Convert.ToInt64(Stmt.ExcuteOnce());
-            }
-            finally { if (Close) Manager.Dispose(); }
+            using (var Stmt = SQLCountPrepare(Manager, Table, Where))
+                return SQLCountApply(Manager, Stmt.ExcuteOnce(), Close);
         }
         public static long SQLCount(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLCount(Manager, Table, Where, false);
         public static long SQLCount<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLCount(Manager, GetTable(Manager, typeof(T)), Where, Close);
         public static long SQLCount<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
-            try
-            {
-                using (var prepare = SQLRawCommand(Manager, Instance, "SELECT COUNT(*) FROM"))
-                    return Convert.ToInt64(prepare.ExcuteOnce());
-            }
-            finally { if (Close) Manager.Dispose(); }
+            using (var Stmt = SQLRawCommandPrepare(Manager, Instance, "SELECT COUNT(*) FROM", GetTable(Manager, typeof(T))))
+                return SQLCountApply(Manager, Stmt.ExcuteOnce(), Close);
+        }
+
+        /// <summary>
+        /// 갯수 구하기
+        /// </summary>
+        /// <param name="Manager">SQL 커넥션</param>
+        /// <param name="Table">게시판 테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
+        public static long SQLCountUnsafe(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        {
+            var query = SQLCountBuild(Manager, Table, Where, false, out var _);
+            return SQLCountApply(Manager, Manager.ExcuteOnce(query), Close);
+        }
+        public static long SQLCountUnsafe(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLCountUnsafe(Manager, Table, Where, false);
+        public static long SQLCountUnsafe<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLCountUnsafe(Manager, GetTable(Manager, typeof(T)), Where, Close);
+        public static long SQLCountUnsafe<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            var query = SQLRawCommandBuild(Manager, Instance, "SELECT COUNT(*) FROM", GetTable(Manager, typeof(T)), false, out var _, out var _);
+            return SQLCountApply(Manager, Manager.ExcuteOnce(query), Close);
         }
         #endregion
 
         #region Async
+        /// <summary>
+        /// 갯수 구하기
+        /// </summary>
+        /// <param name="Manager">SQL 커넥션</param>
+        /// <param name="Table">게시판 테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
         public static async Task<long> SQLCountAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            try
-            {
-                using (var Stmt = DBExecuter.CountPrepare(Manager, Table, Where))
-                    return Convert.ToInt64(await Stmt.ExcuteOnceAsync());
-            }
-            finally { if (Close) Manager.Dispose(); }
+            using (var Stmt = SQLCountPrepare(Manager, Table, Where))
+                return SQLCountApply(Manager, await Stmt.ExcuteOnceAsync(), Close);
         }
         public static Task<long> SQLCountAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLCountAsync(Manager, Table, Where, false);
         public static Task<long> SQLCountAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLCountAsync(Manager, GetTable(Manager, typeof(T)), Where, Close);
         public static async Task<long> SQLCountAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
-            try
-            {
-                using (var prepare = SQLRawCommand(Manager, Instance, "SELECT COUNT(*) FROM"))
-                    return Convert.ToInt64(await prepare.ExcuteOnceAsync());
-            }
-            finally { if (Close) Manager.Dispose(); }
-        }
-        #endregion
-        #endregion
-
-        #region SQL Delete
-        #region Normal
-        public static bool SQLDelete(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
-        {
-            try
-            {
-                using (var stmt = DBExecuter.DeletePrepare(Manager, Table, Where))
-                    return stmt.ExcuteNonQuery() > 0;
-            }
-            finally { if (Close) Manager.Dispose(); }
-        }
-        public static bool SQLDelete(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLDelete(Manager, Table, Where, false);
-        public static bool SQLDelete<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDelete(Manager, GetTable(Manager, typeof(T)), Where, Close);
-        public static int SQLDelete<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
-        {
-            try
-            {
-                using (var prepare = SQLRawCommand(Manager, Instance, "DELETE "))
-                    return prepare.ExcuteNonQuery();
-            }
-            finally { if (Close) Manager.Dispose(); }
-        }
-        #endregion
-
-        #region Async
-        public static async Task<bool> SQLDeleteAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
-        {
-            try
-            {
-                using (var stmt = DBExecuter.DeletePrepare(Manager, Table, Where))
-                    return await stmt.ExcuteNonQueryAsync() > 0;
-            }
-            finally { if (Close) Manager.Dispose(); }
+            using (var Stmt = SQLRawCommandPrepare(Manager, Instance, "SELECT COUNT(*) FROM", GetTable(Manager, typeof(T))))
+                return SQLCountApply(Manager, await Stmt.ExcuteOnceAsync(), Close);
         }
 
-        public static Task<bool> SQLDeleteAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLDeleteAsync(Manager, Table, Where, false);
-
-        public static Task<bool> SQLDeleteAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDeleteAsync(Manager, GetTable(Manager, typeof(T)), Where, Close);
-        public static async Task<long> SQLDeleteAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        /// <summary>
+        /// 갯수 구하기
+        /// </summary>
+        /// <param name="Manager">SQL 커넥션</param>
+        /// <param name="Table">게시판 테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
+        public static async Task<long> SQLCountAsyncUnsafe(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
-            try
-            {
-                using (var prepare = SQLRawCommand(Manager, Instance, "DELETE "))
-                    return await prepare.ExcuteNonQueryAsync();
-            }
-            finally { if (Close) Manager.Dispose(); }
+            var query = SQLCountBuild(Manager, Table, Where, false, out var _);
+            return SQLCountApply(Manager, await Manager.ExcuteOnceAsync(query), Close);
+        }
+        public static Task<long> SQLCountAsyncUnsafe(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLCountAsyncUnsafe(Manager, Table, Where, false);
+        public static Task<long> SQLCountAsyncUnsafe<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLCountAsyncUnsafe(Manager, GetTable(Manager, typeof(T)), Where, Close);
+        public static async Task<long> SQLCountAsyncUnsafe<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        {
+            var query = SQLRawCommandBuild(Manager, Instance, "SELECT COUNT(*) FROM", GetTable(Manager, typeof(T)), false, out var _, out var _);
+            return SQLCountApply(Manager, await Manager.ExcuteOnceAsync(query), Close);
         }
         #endregion
         #endregion
 
         #region SQL Max
-        #region Normal
-        public static object SQLMax(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        private static string SQLMaxPrefix(string Table, string Column) => $"SELECT MAX({Column}) FROM {Table}";
+        internal static string SQLMaxBuild(DBManager Conn, string Table, string Column, IEnumerable<ColumnWhere> Where, bool UseStatement, out ColumnWhere.Statement where)
         {
-            try
-            {
-                using (var stmt = DBExecuter.MaxPrepare(Manager, Table, Column, Where))
-                {
-                    var result = stmt.ExcuteOnce();
-                    return result is DBNull ? null : result;
-                }
-            }
-            finally { if (Close) Manager.Dispose(); }
+            where = ColumnWhere.JoinForStatement(Where, Conn);
+            string where_query = where?.QueryString(UseStatement);
+            StringBuilder sb = new StringBuilder(SQLMaxPrefix(Table, Column));
+
+            //추가 조건절
+            if (!string.IsNullOrEmpty(where_query)) sb.Append(" WHERE ").Append(where_query);
+
+            return sb.ToString();
         }
-        public static object SQLMax<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class => SQLMax(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+        internal static DBCommand SQLMaxPrepare(DBManager Conn, string Table, string Column, IEnumerable<ColumnWhere> Where)
+        {
+            var query = SQLMaxBuild(Conn, Table, Column, Where, true, out var where);
+            var Stmt = Conn.Prepare(query);
+            //추가 조건절이 존재하면 할당
+            where.Apply(Stmt);
+            return Stmt;
+        }
+
+        #region Normal
+        /// <summary>
+        /// 최대값 구하기
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <param name="Column"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static object SQLMax(this DBManager Manager, string Table, string Column, bool Close = false)
+        {
+            var query = SQLMaxPrefix(Table, Column);
+            return GetValue(Manager, Manager.ExcuteOnce(query), Close);
+        }
+        public static object SQLMax<T>(this DBManager Manager, string Column, bool Close = false) => SQLMax(Manager, GetTable(Manager, typeof(T)), Column, Close);
+
+        /// <summary>
+        /// 최대값 구하기 (조건절 포함)
+        /// </summary>
+        /// <param name="Manager">SQL 커넥션</param>
+        /// <param name="Table">테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
+        public static object SQLMax(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where, bool Close = false)
+        {
+            using (var Stmt = SQLMaxPrepare(Manager, Table, Column, Where))
+                return GetValue(Manager, Stmt.ExcuteOnce(), Close);
+        }
+        public static object SQLMax(this DBManager Manager, string Table, string Column, params ColumnWhere[] Where) => SQLMax(Manager, Table, Column, Where, false);
+        public static object SQLMax<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where, bool Close = false) => SQLMax(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+
+        /// <summary>
+        /// 최대값 구하기 (조건절 포함, Statement 미사용)
+        /// </summary>
+        /// <param name="Manager">SQL 커넥션</param>
+        /// <param name="Table">테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
+        public static object SQLMaxUnsafe(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where, bool Close = false)
+        {
+            var query = SQLMaxBuild(Manager, Table, Column, Where, false, out var _);
+            return GetValue(Manager, Manager.ExcuteOnce(query), Close);
+        }
+        public static object SQLMaxUnsafe(this DBManager Manager, string Table, string Column, params ColumnWhere[] Where) => SQLMaxUnsafe(Manager, Table, Column, Where, false);
+        public static object SQLMaxUnsafe<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where, bool Close = false) => SQLMaxUnsafe(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+
         #endregion
 
         #region Async
-        public static async Task<object> SQLMaxAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        /// <summary>
+        /// 최대값 구하기
+        /// </summary>
+        /// <param name="Manager"></param>
+        /// <param name="Table"></param>
+        /// <param name="Column"></param>
+        /// <param name="Close"></param>
+        /// <returns></returns>
+        public static async Task<object> SQLMaxAsync(this DBManager Manager, string Table, string Column, bool Close = false)
         {
-            try
-            {
-                using (var stmt = DBExecuter.MaxPrepare(Manager, Table, Column, Where))
-                {
-                    var result = await stmt.ExcuteOnceAsync();
-                    return result is DBNull ? null : result;
-                }
-            }
-            finally { if (Close) Manager.Dispose(); }
+            var query = SQLMaxPrefix(Table, Column);
+            return GetValue(Manager, await Manager.ExcuteOnceAsync(query), Close);
         }
-        public static Task<object> SQLMaxAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where = null, bool Close = false) where T : class => SQLMaxAsync(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+        public static Task<object> SQLMaxAsync<T>(this DBManager Manager, string Column, bool Close = false) => SQLMaxAsync(Manager, GetTable(Manager, typeof(T)), Column, Close);
+
+        /// <summary>
+        /// 최대값 구하기 (조건절 포함)
+        /// </summary>
+        /// <param name="Manager">SQL 커넥션</param>
+        /// <param name="Table">테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
+        public static async Task<object> SQLMaxAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where, bool Close = false)
+        {
+            using (var Stmt = SQLMaxPrepare(Manager, Table, Column, Where))
+                return GetValue(Manager, await Stmt.ExcuteOnceAsync(), Close);
+        }
+        public static object SQLMaxAsync(this DBManager Manager, string Table, string Column, params ColumnWhere[] Where) => SQLMaxAsync(Manager, Table, Column, Where, false);
+        public static Task<object> SQLMaxAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where, bool Close = false) => SQLMaxAsync(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
+
+        /// <summary>
+        /// 최대값 구하기 (조건절 포함, Statement 미사용)
+        /// </summary>
+        /// <param name="Manager">SQL 커넥션</param>
+        /// <param name="Table">테이블 이름</param>
+        /// <param name="Where">조건</param>
+        /// <param name="Close">커넥션 닫기 여부</param>
+        /// <returns></returns>
+        public static async Task<object> SQLMaxUnsafeAsync(this DBManager Manager, string Table, string Column, IEnumerable<ColumnWhere> Where, bool Close = false)
+        {
+            var query = SQLMaxBuild(Manager, Table, Column, Where, false, out var _);
+            return GetValue(Manager, await Manager.ExcuteOnceAsync(query), Close);
+        }
+        public static Task<object> SQLMaxUnsafeAsync(this DBManager Manager, string Table, string Column, params ColumnWhere[] Where) => SQLMaxUnsafeAsync(Manager, Table, Column, Where, false);
+        public static Task<object> SQLMaxUnsafeAsync<T>(this DBManager Manager, string Column, IEnumerable<ColumnWhere> Where, bool Close = false) => SQLMaxUnsafeAsync(Manager, GetTable(Manager, typeof(T)), Column, Where, Close);
         #endregion
         #endregion
 
@@ -788,7 +1180,7 @@ namespace HS.DB.Extension
             Type type = typeof(T);
             T Instance = (T)Activator.CreateInstance(type);
             try { return Apply(Result, Instance); }
-            finally { if (Dispose) Result.Dispose(); }
+            finally{ if (Dispose) Result.Dispose(); }
         }
         /// <summary>
         /// 주어진 형식에 대한 데이터 목록을 DB 결과값에서 가져옵니다 (MoveNext() 할 필요 없습니다)
@@ -888,7 +1280,7 @@ namespace HS.DB.Extension
             var Columns = new Dictionary<string, ColumnData>();
             var Sorts = new List<SQLSortAttribute>(10);
 
-            var func = new BuildAction<dynamic, Type>((Info, Type) =>
+            var func = new BuildAction<dynamic, Type>((Info, Type) => 
             {
                 SQLColumnAttribute col = null;
                 SQLWhereAttribute iswhere = null;
@@ -926,8 +1318,8 @@ namespace HS.DB.Extension
             });
 
             string SortOut = null;
-            for (int i = 0; i < properties.Length; i++)
-                if (SortOut == null) SortOut = func(properties[i], properties[i].PropertyType);
+            for (int i = 0; i < properties.Length; i++) 
+                if(SortOut == null) SortOut = func(properties[i], properties[i].PropertyType);
                 else func(properties[i], properties[i].PropertyType);
 
             for (int i = 0; i < fields.Length; i++)
@@ -939,9 +1331,9 @@ namespace HS.DB.Extension
         }
 
         //조건 빌드
-        private static WhereData BuildWhere(Dictionary<string, ColumnData> Columns, DBManager Manager = null)
+        private static WhereData BuildWhere<T>(Dictionary<string, ColumnData> Columns, bool UseStatement, T Instance, DBManager Manager = null) where T : class
         {
-            char Prefix = Manager == null ? '\0' : Manager.StatementPrefix;
+            string Prefix = Manager == null ? "" : Manager.StatementPrefix.ToString();
             StringBuilder sb = new StringBuilder();
             List<string> where = new List<string>();
             bool First = true;
@@ -949,8 +1341,9 @@ namespace HS.DB.Extension
             {
                 if (col.Value.Where != null)
                 {
-                    var _where = col.Value.Where;
+                    if (UseStatement) where.Add(col.Key);
 
+                    var _where = col.Value.Where;
                     if (First) sb.Append(" WHERE ");
                     else
                     {
@@ -958,11 +1351,9 @@ namespace HS.DB.Extension
                         else if (_where.Condition == WhereCondition.OR) sb.Append(" OR ");
                     }
 
-                    if (_where.Kind == WhereKind.Equal) sb.Append(Manager.GetQuote(col.Key)).Append($" = {Prefix}{col.Key}");
-                    else if (_where.Kind == WhereKind.NotEqual) sb.Append(Manager.GetQuote(col.Key)).Append($" <> {Prefix}{col.Key}");
-                    else if (_where.Kind == WhereKind.LIKE) sb.Append(Manager.GetQuote(col.Key)).Append($" LIKE {Prefix}{col.Key}");
-
-                    where.Add(col.Key);
+                    if (_where.Kind == WhereKind.Equal) sb.Append(Manager.GetQuote(col.Key)).Append(" = ").Append(UseStatement ? $"{Prefix}{col.Key}" : col.Value.GetDBValue(Instance));
+                    else if (_where.Kind == WhereKind.NotEqual) sb.Append(Manager.GetQuote(col.Key)).Append(" <> ").Append(UseStatement ? $"{Prefix}{col.Key}" : col.Value.GetDBValue(Instance));
+                    else if (_where.Kind == WhereKind.LIKE) sb.Append(Manager.GetQuote(col.Key)).Append(" LIKE ").Append(UseStatement ? $"{Prefix}{col.Key}" : col.Value.GetDBValue(Instance));
 
                     First = false;
                 }
@@ -989,7 +1380,7 @@ namespace HS.DB.Extension
         /// <param name="Type"></param>
         /// <param name="Value"></param>
         /// <returns></returns>
-        static object ConvertValue(ColumnType Type, object Value)
+        private static object ConvertValue(ColumnType Type, object Value)
         {
             if (Value == null) return null;
             else if (Type == ColumnType.DECIMAL || Type == ColumnType.NUMBER) return Convert.ToDecimal(Value).ToString();
@@ -1000,7 +1391,7 @@ namespace HS.DB.Extension
             return Value;
         }
 
-        private class ColumnData
+        internal class ColumnData
         {
             public ColumnData(SQLColumnAttribute Column, dynamic Info, Type Type, SQLWhereAttribute Where) { this.Column = Column; this.Info = Info; this.Type = Type; this.Where = Where; }
 
@@ -1011,9 +1402,10 @@ namespace HS.DB.Extension
 
             public string OriginName => Info.Name;
             public object GetValue<T>(T Instance) where T : class => Info.GetValue(Instance);
+            public string GetDBValue<T>(T Instance) where T : class => DBUtils.GetDBString(GetValue(Instance));
         }
 
-        private class WhereData
+        internal class WhereData
         {
             public WhereData(string Where, List<string> Columns) { this.Where = Where; this.Columns = Columns; }
             public string Where;

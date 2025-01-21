@@ -1,12 +1,10 @@
-using HS.DB.Command;
+﻿using HS.DB.Command;
 using HS.Utils;
 using HS.Utils.Text;
-using MySqlX.XDevAPI.Relational;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.ExceptionServices;
 using System.Text;
+using System.Web;
 
 namespace HS.DB.Extension
 {
@@ -193,21 +191,22 @@ namespace HS.DB.Extension
             else if (IsEmpty) str = null;
             else
             {
-                char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
-                //string Statement = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
-                string Statement = ForStatement ? $"{Prefix}{BindKey}" : Convert.ToString(Value);
                 string RowQuote = Conn == null ? Column : Conn.GetQuote(Column);
 
+                char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
+                //_Value = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
+                string _Value = ForStatement ? $"{Prefix}{BindKey}" : Convert.ToString(Value);
+
                 str = Operator == null ?
-                $"{RowQuote} LIKE CONCAT('%%', {(ForStatement ? Statement : Value)}, '%%') " :
-                $"{RowQuote}{Operator}{(Value == null ? "NULL" : Statement)} ";
+                $"{RowQuote} LIKE CONCAT('%%', {(ForStatement ? _Value : Value)}, '%%') " :
+                $"{RowQuote}{Operator}{(Value == null ? "NULL" : _Value)} ";
             }
 
             if (Next) str = $" {Join} {str}";
 
             return str;
         }
-        public override string ToString() => ToString(null, false);
+        public override string ToString() => ToString(null, false, true);
 
         /**
          * @param QueryCondition[] $Queries
@@ -239,7 +238,7 @@ namespace HS.DB.Extension
             public DBManager Conn;
             public IEnumerable<ColumnWhere> Queries;
 
-            public string QueryString()
+            public string QueryString(bool UseStatement = true)
             {
                 if (Queries == null) return null;
 
@@ -267,58 +266,61 @@ namespace HS.DB.Extension
 
                 foreach (var query in Queries)
                 {
-                    _QueryString(query, sb, First);
+                    _QueryString(query, sb, First, UseStatement);
                     First = false;
                 }
 
                 return sb.ToString();
             }
 
-            private void _QueryString(ColumnWhere data, StringBuilder sb, bool First)
+            private void _QueryString(ColumnWhere data, StringBuilder sb, bool First, bool UseStatement)
             {
                 // 노드가 null이면 아무것도 하지 않습니다.
                 
                 if (data == null) return;
 
                 // 노드의 값을 추가합니다.
-                sb.Append(data.ToString(Conn, true, !First));
+                sb.Append(data.ToString(Conn, UseStatement, !First));
 
                 // 노드의 자식을 추가합니다.
                 if (data.Sub.Count > 0)
                 {
                     sb.Append($" {data.Sub.Operator} (");
                     for(int i = 0; i < data.Sub.Count; i++)
-                        _QueryString(data.Sub[i], sb, i == 0);
+                        _QueryString(data.Sub[i], sb, i == 0, UseStatement);
                     sb.Append(')');
                 }
             }
 
             public DBCommand Apply(DBCommand stmt)
             {
-                Stack<ColumnWhere> stack = new Stack<ColumnWhere>(Queries);
-                while(stack.Count > 0)
+                if (Queries != null)
                 {
-                    var where = stack.Pop();
-                    if (where != null)
+                    Stack<ColumnWhere> stack = new Stack<ColumnWhere>(Queries);
+                    while (stack.Count > 0)
                     {
-                        if(where.IsRaw)
+                        var where = stack.Pop();
+                        if (where != null)
                         {
-                            foreach (var raw in where.RawParams)
-                                stmt.Add(raw.Key, raw.Value == null ? DBNull.Value : raw.Value);
+                            if (where.IsRaw)
+                            {
+                                foreach (var raw in where.RawParams)
+                                    stmt.Add(raw.Key, raw.Value == null ? DBNull.Value : raw.Value);
+                            }
+                            else if (where.IncludeNull || where.Value != null)
+                            {
+                                //stmt.Add(Conn.GetQuote($"{Prefix}{var.Row}"), var.Value);
+                                stmt.Add($"{Prefix}{where.BindKey}", where.Value == null ? DBNull.Value : where.Value);
+                            }
                         }
-                        else if(where.IncludeNull || where.Value != null)
-                        {
-                            //stmt.Add(Conn.GetQuote($"{Prefix}{var.Row}"), var.Value);
-                            stmt.Add($"{Prefix}{where.BindKey}", where.Value == null ? DBNull.Value : where.Value);
-                        }
-                    }
 
-                    stack.PushAll(where?.Sub);
+                        stack.PushAll(where?.Sub);
+                    }
                 }
 
                 return stmt;
             }
-
+             
             class Parenthesis
             {
                 public Parenthesis(ColumnWhere Column, bool End) { this.Column = Column; this.End = End; }
