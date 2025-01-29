@@ -1032,14 +1032,14 @@ namespace HS.DB.Extension
         /// <param name="Where">조건</param>
         /// <param name="Close">커넥션 닫기 여부</param>
         /// <returns></returns>
-        public static async Task<long> SQLCountAsyncUnsafe(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
+        public static async Task<long> SQLCountUnsafeAsync(this DBManager Manager, string Table, IEnumerable<ColumnWhere> Where = null, bool Close = false)
         {
             var query = SQLCountBuild(Manager, Table, Where, false, out var _);
             return SQLCountApply(Manager, await Manager.ExcuteOnceAsync(query), Close);
         }
-        public static Task<long> SQLCountAsyncUnsafe(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLCountAsyncUnsafe(Manager, Table, Where, false);
-        public static Task<long> SQLCountAsyncUnsafe<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLCountAsyncUnsafe(Manager, GetTable(Manager, typeof(T)), Where, Close);
-        public static async Task<long> SQLCountAsyncUnsafe<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
+        public static Task<long> SQLCountUnsafeAsync(this DBManager Manager, string Table, params ColumnWhere[] Where) => SQLCountUnsafeAsync(Manager, Table, Where, false);
+        public static Task<long> SQLCountUnsafeAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLCountUnsafeAsync(Manager, GetTable(Manager, typeof(T)), Where, Close);
+        public static async Task<long> SQLCountUnsafeAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
             var query = SQLRawCommandBuild(Manager, Instance, "SELECT COUNT(*) FROM", GetTable(Manager, typeof(T)), false, out var _, out var _);
             return SQLCountApply(Manager, await Manager.ExcuteOnceAsync(query), Close);

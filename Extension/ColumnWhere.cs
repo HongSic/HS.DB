@@ -4,7 +4,6 @@ using HS.Utils.Text;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Web;
 
 namespace HS.DB.Extension
 {
@@ -146,7 +145,7 @@ namespace HS.DB.Extension
         /// <param name="Value">값</param>
         /// <param name="Operator">연산자 [=, !=, <>, ...]. 만약 null 이면 Like 문으로 간주</param>
         /// <param name="Join">현재 이 조건의 연결자 [AND, OR, ...]</param>
-        private ColumnWhere(string Column, object Value, string Operator = "=", string Join = DefaultOperator)
+        private ColumnWhere(string Column, object Value, string Operator, string Join)
         {
             this.Column = Column;
             this.Value = Value;
@@ -163,7 +162,7 @@ namespace HS.DB.Extension
         /// <param name="WhereQuery"></param>
         /// <param name="RawParams"></param>
         /// <param name="Join"></param>
-        private ColumnWhere(string WhereQuery, Dictionary<string, object> RawParams, string Join = DefaultOperator)
+        private ColumnWhere(string WhereQuery, Dictionary<string, object> RawParams, string Join)
         {
             this.WhereQuery = WhereQuery;
             this.RawParams = RawParams;
