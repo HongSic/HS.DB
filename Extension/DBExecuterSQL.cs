@@ -316,7 +316,7 @@ namespace HS.DB.Extension
         public static int SQLDelete<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDelete(Manager, GetTable(Manager, typeof(T)), Where, Close);
         public static int SQLDelete<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
-            using (var cmd = SQLRawCommandPrepare(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T))))
+            using (var cmd = SQLRawCommandPrepare(Manager, Instance, "DELETE FROM ", GetTable(Manager, typeof(T))))
                 return GetExcuteNonQuery(Manager, cmd.ExcuteNonQuery(), Close);
         }
 
@@ -329,7 +329,7 @@ namespace HS.DB.Extension
         public static int SQLDeleteUnsafe<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDeleteUnsafe(Manager, GetTable(Manager, typeof(T)), Where, Close);
         public static int SQLDeleteUnsafe<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
-            var query = SQLRawCommandBuild(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T)), false, out var _, out var _);
+            var query = SQLRawCommandBuild(Manager, Instance, "DELETE FROM ", GetTable(Manager, typeof(T)), false, out var _, out var _);
             return GetExcuteNonQuery(Manager, Manager.ExcuteNonQuery(query), Close);
         }
         #endregion
@@ -344,7 +344,7 @@ namespace HS.DB.Extension
         public static Task<int> SQLDeleteAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDeleteAsync(Manager, GetTable(Manager, typeof(T)), Where, Close);
         public static async Task<int> SQLDeleteAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
-            using (var cmd = SQLRawCommandPrepare(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T))))
+            using (var cmd = SQLRawCommandPrepare(Manager, Instance, "DELETE FROM ", GetTable(Manager, typeof(T))))
                 return GetExcuteNonQuery(Manager, await cmd.ExcuteNonQueryAsync(), Close);
         }
 
@@ -357,7 +357,7 @@ namespace HS.DB.Extension
         public static Task<int> SQLDeleteUnsafeAsync<T>(this DBManager Manager, IEnumerable<ColumnWhere> Where = null, bool Close = false) => SQLDeleteUnsafeAsync(Manager, GetTable(Manager, typeof(T)), Where, Close);
         public static async Task<int> SQLDeleteUnsafeAsync<T>(this DBManager Manager, T Instance, bool Close = false) where T : class
         {
-            var query = SQLRawCommandBuild(Manager, Instance, "DELETE ", GetTable(Manager, typeof(T)), false, out var _, out var _);
+            var query = SQLRawCommandBuild(Manager, Instance, "DELETE FROM ", GetTable(Manager, typeof(T)), false, out var _, out var _);
             return GetExcuteNonQuery(Manager, await Manager.ExcuteNonQueryAsync(query), Close);
         }
         #endregion
