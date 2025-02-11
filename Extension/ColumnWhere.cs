@@ -1,4 +1,4 @@
-﻿using HS.DB.Command;
+using HS.DB.Command;
 using HS.Utils;
 using HS.Utils.Text;
 using System;
@@ -169,18 +169,15 @@ namespace HS.DB.Extension
             this.Join = Join;
         }
 
-        public Enum ValueType()
+        public ColumnType ValueType()
         {
             Type type = Value?.GetType();
-            switch (type.Name)
-            {
-                case "Int64":
-                case "Int32": return ColumnType.NUMBER;
-                case "Single":
-                case "Double": return ColumnType.DECIMAL;
-                case "String": return ColumnType.STRING;
-                default: return ColumnType.ETC;
-            }
+            if (type == DBUtils.TYPE_STRING) return ColumnType.STRING;
+            if (DBUtils.IsTypeInteger(type)) return ColumnType.NUMBER;
+            if (DBUtils.IsTypeNumeric(type)) return ColumnType.DECIMAL;
+            if (DBUtils.IsTypeDateTime(type)) return ColumnType.DATETIME;
+            if (type == DBUtils.TYPE_ARRAY_BYTE) return ColumnType.BIN;
+            return ColumnType.ETC;
         }
 
         public string ToString(DBManager Conn, bool ForStatement, bool Next = false)
@@ -194,7 +191,7 @@ namespace HS.DB.Extension
 
                 char Prefix = Conn == null ? '\0' : Conn.StatementPrefix;
                 //_Value = ForStatement ? Conn.GetQuote($"{Prefix}{Row}") : Value.ToString();
-                string _Value = ForStatement ? $"{Prefix}{BindKey}" : Convert.ToString(Value);
+                string _Value = ForStatement ? $"{Prefix}{BindKey}" : Conn.GetDBValue(Value);
 
                 str = Operator == null ?
                 $"{RowQuote} LIKE CONCAT('%%', {(ForStatement ? _Value : Value)}, '%%') " :

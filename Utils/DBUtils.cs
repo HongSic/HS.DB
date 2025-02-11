@@ -1,4 +1,4 @@
-﻿#if MSSQL_MICROSOFT
+#if MSSQL_MICROSOFT
 using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
@@ -15,6 +15,8 @@ namespace HS.Utils
     public static class DBUtils
     {
         #region Type
+        public static readonly Type TYPE_STRING = typeof(string);
+
         #region Numric
         public static readonly Type TYPE_BYTE = typeof(byte);
         public static readonly Type TYPE_SBYTE = typeof(sbyte);
