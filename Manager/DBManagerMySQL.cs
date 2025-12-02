@@ -13,7 +13,6 @@ namespace HS.DB.Manager
     {
         private DBConnectionMySQL conn;
         public override DBConnection Connector { get { return conn; } }
-        public override DBConnectionKind Kind { get { return DBConnectionKind.MySQL; } }
 
         public override string GetQuote(string Keyword) => $"`{Keyword}`";
         public override string ApplyLimitBuild(string SQLQuery, int Offset, int Count) => Count > 0 ? $"{SQLQuery} LIMIT {Offset}, {Count}" : SQLQuery;
@@ -75,6 +74,8 @@ namespace HS.DB.Manager
         {
             throw new System.NotImplementedException();
         }
+
+        public override string GetLastInsert(string Table) => "SELECT LAST_INSERT_ID()";
 
         public static MySqlCommand CommandBuilder(MySqlConnection Connect, string SQLQuery, params DBParam[] Params)
         {

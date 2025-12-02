@@ -3,6 +3,15 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>HS.DB</AssemblyName>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Title>HS.DB</Title>
+    <Authors>HSKernel</Authors>
+    <Description>HS C# Database Framework </Description>
+    <PackageProjectUrl>https://github.com/HongSic/HS.DB.git</PackageProjectUrl>
+    <LangVersion>7</LangVersion>
+    <Version>1.0.0</Version>
+    <Copyright>HSKernel</Copyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -22,10 +31,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
-    <PackageReference Include="MySql.Data" Version="9.2.0" />
-    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.7.0" />
-    <PackageReference Include="System.Data.Odbc" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.3" />
+    <PackageReference Include="MySql.Data" Version="9.5.0" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.0" />
+    <PackageReference Include="System.Data.Odbc" Version="10.0.0" />
   </ItemGroup>
 
   <ItemGroup>

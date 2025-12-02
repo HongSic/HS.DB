@@ -30,9 +30,18 @@ namespace HS.DB.Extension
         private static readonly Type SQLWhereType = typeof(SQLWhereAttribute);
         private static readonly Type SQLSortType = typeof(SQLSortAttribute);
 
-        public static ListData FromInstance<T>(DBManager Manager = null) where T : class => FromInstance<T>(out _, Manager);
+        public static ListData FromInstance<T>(DBManager Manager = null) where T : class
+        {
+            string ignore;
+            return FromInstance<T>(out ignore, Manager);
+        }
+
         public static ListData FromInstance<T>(out string Table, DBManager Manager = null) where T : class => FromInstance((T)Activator.CreateInstance(typeof(T)), false, out Table, Manager);
-        public static ListData FromInstance<T>(T Instance, DBManager Manager = null) where T : class => FromInstance(Instance, out _, Manager);
+        public static ListData FromInstance<T>(T Instance, DBManager Manager = null) where T : class 
+        {
+            string ignore;
+            return FromInstance(Instance, out ignore, Manager);
+        }
         public static ListData FromInstance<T>(T Instance, out string Table, DBManager Manager = null) where T : class => FromInstance(Instance, true, out Table, Manager);
         private static ListData FromInstance<T>(T Instance, bool WhereInclude, out string Table, DBManager Manager = null) where T : class
         {

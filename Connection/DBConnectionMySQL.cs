@@ -10,6 +10,8 @@ namespace HS.DB.Connection
     public class DBConnectionMySQL : DBConnection
     {
         public const int PORT = 3306;
+        public const string KIND = "MySQL";
+
         DBManagerMySQL manager;
         private DBConnectionMySQL(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param) : base(Server, ID, PW, DB, Timeout, Param)
         {
@@ -37,7 +39,8 @@ namespace HS.DB.Connection
                 {
                     if (string.Equals(pair.Key, "Port", StringComparison.InvariantCultureIgnoreCase))
                     {
-                        uint.TryParse(pair.Value, out uint port);
+                        uint port;
+                        uint.TryParse(pair.Value, out port);
                         sqlBuilder.Port = port < 1 ? PORT : port;
                     }
                     else sqlBuilder.Add(pair.Key, pair.Value);
@@ -47,6 +50,7 @@ namespace HS.DB.Connection
         }
         public MySqlConnection Connector { get; private set; }
 
+        public override string Kind { get { return KIND; } }
         public override DBStatus Status
         {
             get

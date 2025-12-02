@@ -19,7 +19,6 @@ namespace HS.DB.Manager
         private DBConnectionMSSQL conn;
 
         public override DBConnection Connector { get { return conn; } }
-        public override DBConnectionKind Kind { get { return DBConnectionKind.MSSQL; } }
 
         public override string GetQuote(string Keyword) => $"[{Keyword}]";
         /// <summary>
@@ -96,6 +95,8 @@ namespace HS.DB.Manager
             var cmd = CommandBuilder((SqlConnection)(DBConnectionMSSQL)Connector, SQLQuery, param);
             using (var reader = cmd.ExecuteReader()) return DBUtils.ToJSON(reader, Bracket);
         }
+
+        public override string GetLastInsert(string Table) => "select @@identity";
 
         public static SqlCommand CommandBuilder(SqlConnection Connect, string SQLQuery, params DBParam[] Params)
         {

@@ -10,6 +10,8 @@ namespace HS.DB.Connection
     public class DBConnectionOracle : DBConnection
     {
         public const int PORT = 1521;
+        public const string KIND = "Oracle";
+
         DBManagerOracle manager;
         private DBConnectionOracle(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param) : base(Server, ID, PW, DB, Timeout, Param)
         {
@@ -48,6 +50,7 @@ namespace HS.DB.Connection
         }
         public OracleConnection Connector { get; private set; }
 
+        public override string Kind { get { return KIND; } }
         public override DBStatus Status
         {
             get

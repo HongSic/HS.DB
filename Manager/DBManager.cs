@@ -12,12 +12,12 @@ namespace HS.DB
     public abstract class DBManager : IDisposable
     {
         public abstract DBConnection Connector { get; }
-        public abstract DBConnectionKind Kind { get; }
+        public virtual string Kind { get { return Connector.Kind; } }
 
         /// <summary>
         /// Prepare (Statement) 를 사용시 접두어
         /// </summary>
-        public virtual char StatementPrefix { get{ return '@'; } }
+        public virtual char StatementPrefix { get { return '@'; } }
         public abstract string GetQuote(string Keyword);
 
         public string GetStatementPrefix() => StatementPrefix == '\0' ? null : StatementPrefix.ToString();
@@ -79,18 +79,11 @@ namespace HS.DB
         #endregion
 
         /// <summary>
-        /// 
+        /// DBMS 별 LastInsertQuery 반환
         /// </summary>
-        /// <param name="Manager"></param>
         /// <param name="Table"></param>
         /// <returns></returns>
-        public static string GetLastInsert(DBManager Manager, string Table)
-        {
-            if (Manager.GetType().Equals(typeof(DBManagerMSSQL))) return "select @@identity";
-            else if (Manager.GetType().Equals(typeof(DBManagerOracle))) return "select nextval() from " + Table;
-            else if (Manager.GetType().Equals(typeof(DBManagerMySQL))) return "SELECT LAST_INSERT_ID()";
-            else return null;
-        }
+        public abstract string GetLastInsert(string Table);
 
         public static string GetResetAutoIncrease(DBManager Manager, string Table)
         {

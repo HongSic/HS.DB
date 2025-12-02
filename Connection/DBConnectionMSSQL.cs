@@ -18,6 +18,7 @@ namespace HS.DB.Connection
     public class DBConnectionMSSQL : DBConnection
     {
         public const int PORT = 1433;
+        public const string KIND = "MSSQL";
 
         DBManagerMSSQL manager;
         private DBConnectionMSSQL(string Server, string ID, string PW, string DB, int Timeout, IReadOnlyDictionary<string, string> Param) : base(Server, ID, PW, DB, Timeout, Param)
@@ -53,8 +54,10 @@ namespace HS.DB.Connection
                 return sqlBuilder.ToString();
             }
         }
+
         public SqlConnection Connector { get; private set; }
 
+        public override string Kind { get { return KIND; } }
         public override DBStatus Status
         {
             get
@@ -88,7 +91,7 @@ namespace HS.DB.Connection
         public static DBManagerMSSQL Connect(string Server, string ID, string PW, string DB, int Timeout) { return Connect(Server, PORT, ID, PW, DB, Timeout); }
         public static DBManagerMSSQL Connect(string Server, int Port, string ID, string PW, string DB, int Timeout)
         {
-            return  Connect(Server, ID, PW, DB, Timeout, new Dictionary<string, string>()
+            return Connect(Server, ID, PW, DB, Timeout, new Dictionary<string, string>()
             {
                 { "Port", Port.ToString() }
             });

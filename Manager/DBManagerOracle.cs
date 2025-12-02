@@ -13,7 +13,6 @@ namespace HS.DB.Manager
     {
         private DBConnectionOracle conn;
         public override DBConnection Connector { get { return conn; } }
-        public override DBConnectionKind Kind { get { return DBConnectionKind.MySQL; } }
 
         public override char StatementPrefix => ':';
         public override string GetQuote(string Keyword) => EnableQuote ? $"\"{Keyword}\"" : Keyword;
@@ -91,6 +90,8 @@ namespace HS.DB.Manager
         {
             throw new System.NotImplementedException();
         }
+
+        public override string GetLastInsert(string Table) => "select nextval() from " + Table;
 
         public static OracleCommand CommandBuilder(OracleConnection Connect, string SQLQuery, params DBParam[] Params)
         {

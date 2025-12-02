@@ -1,4 +1,5 @@
 using System;
+using HS.DB.Connection;
 
 namespace HS.DB.Command
 {
@@ -31,7 +32,7 @@ namespace HS.DB.Command
         {
             #region CommandPreset
             public static DBCommandBuilder GetCount(string Table, string Column = "*", string Where = null) { return new DBCommandBuilder(string.Format("COUNT({0})", Column), Table, Where); }
-            public static DBCommandBuilder GetTables(DBConnectionKind Kind, string DBName, bool IncludeScheme = true, SortOption Sort = SortOption.Not, string Where = null)
+            public static DBCommandBuilder GetTables(string Kind, string DBName, bool IncludeScheme = true, SortOption Sort = SortOption.Not, string Where = null)
             {
                 //https://hellogk.tistory.com/42 각 dbms별로 문자열을 합치는 코드
 
@@ -39,8 +40,8 @@ namespace HS.DB.Command
                 if (Sort == SortOption.Descending) sort = "order by TABLES desc";
                 else if (Sort == SortOption.Ascending) sort = "order by TABLES asc";
 
-                if (Kind == DBConnectionKind.MSSQL) return new DBCommandBuilder(IncludeScheme ? "TABLE_SCHEMA+'.'+TABLE_NAME TABLES" : "TABLE_NAME TABLES", string.Format("{0}.INFORMATION_SCHEMA.TABLES {1}", DBName, sort), Where);
-                else if (Kind == DBConnectionKind.Oracle) return new DBCommandBuilder(IncludeScheme ? "TABLE_SCHEMA+'.'+TABLE_NAME TABLES" : "TABLE_NAME TABLES", string.Format("{0}.INFORMATION_SCHEMA.TABLES {1}", DBName, sort), Where);
+                if (Kind == DBConnectionMSSQL.KIND) return new DBCommandBuilder(IncludeScheme ? "TABLE_SCHEMA+'.'+TABLE_NAME TABLES" : "TABLE_NAME TABLES", string.Format("{0}.INFORMATION_SCHEMA.TABLES {1}", DBName, sort), Where);
+                else if (Kind == DBConnectionOracle.KIND) return new DBCommandBuilder(IncludeScheme ? "TABLE_SCHEMA+'.'+TABLE_NAME TABLES" : "TABLE_NAME TABLES", string.Format("{0}.INFORMATION_SCHEMA.TABLES {1}", DBName, sort), Where);
                 return null;
                 /*
                  데이터베이스 테이블 목록 가져오기

@@ -15,7 +15,11 @@ namespace HS.DB.Command
 
         public override string SQLQuery => Command.CommandText;
 
-        public override CommandType CommandType { get => Command.CommandType; set => Command.CommandType = value; }
+        public override CommandType CommandType
+        {
+            get { return Command.CommandType; }
+            set { Command.CommandType = value; }
+        }
 
         public DBCommandMySQL(DBManagerMySQL Manager, string SQLQuery)
         {

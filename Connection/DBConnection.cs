@@ -18,6 +18,7 @@ namespace HS.DB
 
         //DBStatus _Status;
         //public virtual DBStatus Status { get { return _Status; } protected set { _Status = value; OnDBStatusChanged(this, value); } }
+        public abstract string Kind { get; }
 
         public abstract DBStatus Status { get; }
         public abstract string ServerVersion { get; }
