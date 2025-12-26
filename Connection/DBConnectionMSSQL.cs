@@ -1,5 +1,4 @@
 #if MSSQL_MICROSOFT
-using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
 #endif
@@ -9,6 +8,7 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
 using HS.Utils.Text;
+using Microsoft.Data.SqlClient;
 
 namespace HS.DB.Connection
 {
@@ -85,7 +85,27 @@ namespace HS.DB.Connection
         }
         internal void Close() { try { Connector?.Close(); } catch { } }
 
-        public static explicit operator SqlConnection(DBConnectionMSSQL connection) { return connection.Connector; }
+        public static implicit operator SqlConnection(DBConnectionMSSQL connection) { return connection.Connector; }
+        public static implicit operator DBConnectionMSSQL(SqlConnection connector) { return FromConnector(connector); }
+
+        public static DBConnectionMSSQL FromConnector(SqlConnection connector)
+        {
+            if (connector == null) return null;
+
+            var builder = new SqlConnectionStringBuilder(connector.ConnectionString);
+            var param = DBConnectionUtils.CreateParamDictionary();
+            DBConnectionUtils.AddParam(param, "Port", DBConnectionUtils.ExtractPort(builder.DataSource, PORT));
+
+            foreach (var key in builder.Keys)
+            {
+                var name = key == null ? null : key.ToString();
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                if (DBConnectionUtils.IsKey(name, "Data Source", "Server", "User ID", "UserID", "Password", "Initial Catalog", "Database", "Connect Timeout")) continue;
+                DBConnectionUtils.AddParam(param, name, builder[name]?.ToString());
+            }
+
+            return new DBConnectionMSSQL(DBConnectionUtils.ExtractHost(builder.DataSource), builder.UserID, builder.Password, builder.InitialCatalog, builder.ConnectTimeout, param);
+        }
 
         #region Connect
         public static DBManagerMSSQL Connect(string Server, string ID, string PW, string DB, int Timeout) { return Connect(Server, PORT, ID, PW, DB, Timeout); }

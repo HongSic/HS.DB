@@ -79,7 +79,27 @@ namespace HS.DB.Connection
         }
         internal void Close() { try { Connector?.Close(); } catch { } }
 
-        public static explicit operator MySqlConnection(DBConnectionMySQL connection) { return connection.Connector; }
+        public static implicit operator MySqlConnection(DBConnectionMySQL connection) { return connection.Connector; }
+        public static implicit operator DBConnectionMySQL(MySqlConnection connector) { return FromConnector(connector); }
+
+        public static DBConnectionMySQL FromConnector(MySqlConnection connector)
+        {
+            if (connector == null) return null;
+
+            var builder = new MySqlConnectionStringBuilder(connector.ConnectionString);
+            var param = DBConnectionUtils.CreateParamDictionary();
+            DBConnectionUtils.AddParam(param, "Port", builder.Port);
+
+            foreach (var key in builder.Keys)
+            {
+                var name = key == null ? null : key.ToString();
+                if (string.IsNullOrWhiteSpace(name)) continue;
+                if (DBConnectionUtils.IsKey(name, "Server", "Host", "Port", "User ID", "UserID", "Password", "Database", "Connection Timeout")) continue;
+                DBConnectionUtils.AddParam(param, name, builder[name]?.ToString());
+            }
+
+            return new DBConnectionMySQL(builder.Server, builder.UserID, builder.Password, builder.Database, (int)builder.ConnectionTimeout, param);
+        }
 
 
         #region Connect
