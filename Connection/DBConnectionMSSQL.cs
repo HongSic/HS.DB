@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System;
 using HS.Utils.Text;
-using Microsoft.Data.SqlClient;
 
 namespace HS.DB.Connection
 {
