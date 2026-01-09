@@ -1,4 +1,5 @@
 #if MSSQL_MICROSOFT
+using Microsoft.Data.SqlClient;
 #else
 using System.Data.SqlClient;
 #endif
