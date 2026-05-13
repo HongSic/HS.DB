@@ -1,4 +1,4 @@
-﻿using HS.DB.Command;
+using HS.DB.Command;
 using HS.DB.Result;
 using System;
 using System.Threading.Tasks;
